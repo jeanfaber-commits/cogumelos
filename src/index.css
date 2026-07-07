@@ -1,0 +1,512 @@
+/* =========================================================================
+   Sistema de design — Controle de Produção de Cogumelos
+   Estética: software de controle industrial, com um verde "cultura saudável"
+   como cor de acento. Superfícies com leve tom esverdeado, não preto puro.
+   Dois temas: escuro (padrão) e claro.
+   ========================================================================= */
+
+:root {
+  /* Tema ESCURO (padrão) */
+  --bg: #0E1512;
+  --surface: #16201C;
+  --surface-2: #1E2B26;
+  --surface-hover: #223129;
+  --border: rgba(233, 242, 237, 0.09);
+  --border-strong: rgba(233, 242, 237, 0.18);
+
+  --text: #EAF2ED;
+  --text-secondary: #9DB0A8;
+  --text-muted: #6B7D75;
+
+  --accent: #3BBE8F;
+  --accent-hover: #4ACF9E;
+  --accent-contrast: #05130D;
+  --accent-bg: rgba(59, 190, 143, 0.13);
+  --accent-border: rgba(59, 190, 143, 0.35);
+
+  --warning: #E8B23A;
+  --warning-bg: rgba(232, 178, 58, 0.13);
+  --danger: #E5533D;
+  --danger-bg: rgba(229, 83, 61, 0.13);
+
+  --radius: 10px;
+  --radius-lg: 16px;
+  --radius-sm: 8px;
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --tap: 48px; /* alvo mínimo de toque */
+
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "SF Mono", "Roboto Mono", ui-monospace, "Courier New", monospace;
+
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg: #F1F5F3;
+  --surface: #FFFFFF;
+  --surface-2: #F7FAF9;
+  --surface-hover: #EEF3F1;
+  --border: rgba(14, 21, 18, 0.10);
+  --border-strong: rgba(14, 21, 18, 0.20);
+
+  --text: #13201B;
+  --text-secondary: #4A5A53;
+  --text-muted: #79897F;
+
+  --accent: #0F8A5F;
+  --accent-hover: #0B6F4C;
+  --accent-contrast: #FFFFFF;
+  --accent-bg: rgba(15, 138, 95, 0.10);
+  --accent-border: rgba(15, 138, 95, 0.30);
+
+  --warning: #A9770C;
+  --warning-bg: rgba(169, 119, 12, 0.10);
+  --danger: #C13A28;
+  --danger-bg: rgba(193, 58, 40, 0.10);
+
+  --shadow: 0 1px 3px rgba(14, 21, 18, 0.08);
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root { height: 100%; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior: none;
+}
+
+button { font-family: inherit; cursor: pointer; }
+input { font-family: inherit; }
+
+/* Números com aparência de instrumento (largura fixa) */
+.tnum { font-variant-numeric: tabular-nums; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+
+/* ============================= LAYOUT / SHELL ============================= */
+
+.shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: 1fr;
+  height: 100%;
+}
+
+.sidebar {
+  background: var(--surface);
+  border-right: 0.5px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 14px;
+  gap: 6px;
+  overflow-y: auto;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 6px 10px 20px;
+}
+.brand-mark {
+  width: 34px; height: 34px; border-radius: 9px;
+  background: var(--accent);
+  display: grid; place-items: center;
+  flex-shrink: 0;
+  color: var(--accent-contrast);
+}
+.brand-name { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; }
+.brand-sub { font-size: 12px; color: var(--text-muted); }
+
+.nav-scroll { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+
+.nav-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 12px;
+  min-height: var(--tap);
+  border: none; background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius);
+  font-size: 15px; font-weight: 500;
+  text-align: left; width: 100%;
+  transition: background 0.12s, color 0.12s;
+}
+.nav-item:hover { background: var(--surface-hover); color: var(--text); }
+.nav-item.active { background: var(--accent-bg); color: var(--accent); }
+.nav-item.active svg { color: var(--accent); }
+.nav-item svg { flex-shrink: 0; }
+
+.sidebar-footer { display: flex; flex-direction: column; gap: 4px; padding-top: 12px; border-top: 0.5px solid var(--border); }
+
+/* Cabeçalho móvel + barra inferior (aparecem só no celular) */
+.mobile-header, .bottom-nav { display: none; }
+
+.main {
+  overflow-y: auto;
+  padding: 28px 32px 40px;
+  height: 100%;
+}
+.main-inner { max-width: 1080px; margin: 0 auto; }
+
+.page-head { margin-bottom: 24px; }
+.page-title { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
+.page-desc { font-size: 15px; color: var(--text-secondary); margin-top: 4px; }
+
+/* ============================= COMPONENTES ============================= */
+
+.card {
+  background: var(--surface);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px 22px;
+}
+
+.grid { display: grid; gap: 14px; }
+.grid-metrics { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+
+.metric {
+  background: var(--surface);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 6px;
+  min-height: 104px;
+  justify-content: space-between;
+}
+.metric-label {
+  font-size: 13px; color: var(--text-secondary);
+  display: flex; align-items: center; gap: 7px;
+}
+.metric-value { font-size: 30px; font-weight: 600; letter-spacing: -0.02em; line-height: 1; }
+.metric-value.empty { color: var(--text-muted); font-weight: 500; }
+.metric-unit { font-size: 15px; color: var(--text-muted); font-weight: 500; margin-left: 2px; }
+.metric-foot { font-size: 12px; color: var(--text-muted); }
+
+.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dot.ok { background: var(--accent); }
+.dot.warn { background: var(--warning); }
+.dot.bad { background: var(--danger); }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: var(--tap); padding: 0 20px;
+  border-radius: var(--radius);
+  border: 0.5px solid var(--border-strong);
+  background: var(--surface-2); color: var(--text);
+  font-size: 15px; font-weight: 500;
+  transition: background 0.12s, transform 0.08s;
+}
+.btn:hover { background: var(--surface-hover); }
+.btn:active { transform: scale(0.98); }
+.btn-primary { background: var(--accent); color: var(--accent-contrast); border-color: transparent; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-ghost { background: transparent; }
+.btn-full { width: 100%; }
+
+.field { display: flex; flex-direction: column; gap: 7px; margin-bottom: 16px; }
+.field label { font-size: 14px; color: var(--text-secondary); font-weight: 500; }
+.input {
+  height: var(--tap); padding: 0 14px;
+  background: var(--surface-2);
+  border: 0.5px solid var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--text); font-size: 16px;
+  transition: border-color 0.12s;
+}
+.input:focus { outline: none; border-color: var(--accent); }
+.input::placeholder { color: var(--text-muted); }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 11px; border-radius: 100px;
+  font-size: 13px; font-weight: 500;
+}
+.badge-accent { background: var(--accent-bg); color: var(--accent); }
+.badge-muted { background: var(--surface-2); color: var(--text-secondary); }
+
+.empty-note {
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  color: var(--text-muted); font-size: 14px;
+  background: transparent;
+}
+
+/* ---- Indicador de ocupação (elemento de assinatura) ---- */
+.gauge-card { display: flex; gap: 26px; align-items: center; flex-wrap: wrap; }
+.gauge { position: relative; width: 150px; height: 150px; flex-shrink: 0; }
+.gauge svg { transform: rotate(-90deg); }
+.gauge-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.gauge-pct { font-size: 34px; font-weight: 600; letter-spacing: -0.02em; line-height: 1; }
+.gauge-pct.empty { color: var(--text-muted); }
+.gauge-caption { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+.gauge-legend { display: flex; flex-direction: column; gap: 12px; flex: 1; min-width: 200px; }
+.legend-row { display: flex; align-items: baseline; gap: 10px; }
+.legend-key { font-size: 13px; color: var(--text-secondary); min-width: 130px; }
+.legend-val { font-size: 20px; font-weight: 600; }
+.legend-val.muted { color: var(--text-muted); font-weight: 500; font-size: 16px; }
+
+/* ============================= TELA DE LOGIN ============================= */
+
+.auth-wrap {
+  min-height: 100%; display: grid; place-items: center;
+  padding: 24px;
+}
+.auth-card { width: 100%; max-width: 380px; }
+.auth-head { text-align: center; margin-bottom: 26px; }
+.auth-mark {
+  width: 52px; height: 52px; border-radius: 13px; margin: 0 auto 16px;
+  background: var(--accent); display: grid; place-items: center;
+  color: var(--accent-contrast);
+}
+.auth-title { font-size: 20px; font-weight: 600; }
+.auth-sub { font-size: 14px; color: var(--text-secondary); margin-top: 5px; }
+.auth-error {
+  background: var(--danger-bg); color: var(--danger);
+  padding: 11px 14px; border-radius: var(--radius);
+  font-size: 14px; margin-bottom: 16px;
+}
+
+/* ============================= SPLASH / CARREGANDO ============================= */
+.splash { min-height: 100%; display: grid; place-items: center; }
+.spinner {
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 3px solid var(--border-strong); border-top-color: var(--accent);
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ============================= RESPONSIVO (CELULAR / TABLET) ============================= */
+
+@media (max-width: 860px) {
+  .shell { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .sidebar { display: none; }
+
+  .mobile-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px;
+    padding-top: calc(12px + env(safe-area-inset-top));
+    background: var(--surface);
+    border-bottom: 0.5px solid var(--border);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .mobile-header .brand { padding: 0; }
+  .mobile-header .brand-sub { display: none; }
+
+  .main { padding: 20px 16px calc(96px + env(safe-area-inset-bottom)); }
+
+  .bottom-nav {
+    display: flex;
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
+    background: var(--surface);
+    border-top: 0.5px solid var(--border);
+    padding: 8px 6px calc(8px + env(safe-area-inset-bottom));
+    justify-content: space-around;
+  }
+  .bottom-item {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    background: none; border: none;
+    color: var(--text-muted);
+    font-size: 10.5px; font-weight: 500;
+    padding: 4px 4px; min-width: 52px;
+    border-radius: var(--radius-sm);
+  }
+  .bottom-item.active { color: var(--accent); }
+  .bottom-item svg { width: 24px; height: 24px; }
+
+  .page-title { font-size: 21px; }
+  .metric-value { font-size: 27px; }
+}
+
+@media (max-width: 380px) {
+  .bottom-item { font-size: 9.5px; min-width: 46px; }
+}
+
+/* ===================== FORMULÁRIOS / CÁLCULOS (passo 2) ===================== */
+
+.section-title {
+  font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
+  margin-bottom: 4px;
+}
+.section-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+.card + .card { margin-top: 14px; }
+
+.form-grid {
+  display: grid; gap: 14px 18px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+.num-field { display: flex; flex-direction: column; gap: 6px; }
+.num-field > label { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+.num-wrap { display: flex; align-items: center; gap: 9px; }
+.num-wrap input {
+  flex: 1; min-width: 0; height: 44px; padding: 0 12px;
+  background: var(--surface-2); border: 0.5px solid var(--border-strong);
+  border-radius: var(--radius); color: var(--text);
+  font-size: 16px; text-align: right; font-variant-numeric: tabular-nums;
+}
+.num-wrap input:focus { outline: none; border-color: var(--accent); }
+.num-wrap .unit { font-size: 13px; color: var(--text-muted); white-space: nowrap; min-width: 30px; }
+
+.help { font-size: 12.5px; color: var(--text-muted); margin-top: 6px; line-height: 1.5; }
+
+/* Tabela (receita de composto e resultados) */
+.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tbl th {
+  text-align: left; font-weight: 500; color: var(--text-secondary);
+  font-size: 12.5px; padding: 8px 10px; border-bottom: 0.5px solid var(--border);
+}
+.tbl th.r, .tbl td.r { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl td { padding: 10px 10px; border-bottom: 0.5px solid var(--border); }
+.tbl tr:last-child td { border-bottom: none; }
+.tbl tfoot td { font-weight: 600; border-top: 0.5px solid var(--border-strong); border-bottom: none; }
+.tbl .in-cell {
+  width: 82px; height: 38px; padding: 0 8px; text-align: right;
+  background: var(--surface-2); border: 0.5px solid var(--border-strong);
+  border-radius: var(--radius-sm); color: var(--text);
+  font-size: 15px; font-variant-numeric: tabular-nums;
+}
+.tbl .in-cell:focus { outline: none; border-color: var(--accent); }
+.tbl-scroll { overflow-x: auto; }
+
+/* Painel do teto sustentável (resultado que se atualiza sozinho) */
+.teto-panel {
+  background: var(--accent-bg); border: 0.5px solid var(--accent-border);
+  border-radius: var(--radius-lg); padding: 18px 20px;
+}
+.teto-top { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.teto-value { font-size: 40px; font-weight: 600; letter-spacing: -0.02em; line-height: 1; color: var(--accent); }
+.teto-label { font-size: 14px; color: var(--text-secondary); }
+.teto-label b { color: var(--text); font-weight: 600; }
+
+.limit-row { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.limit-name { font-size: 13px; color: var(--text-secondary); min-width: 130px; }
+.limit-bar { flex: 1; height: 7px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.limit-fill { height: 100%; border-radius: 4px; background: var(--text-muted); }
+.limit-fill.bind { background: var(--accent); }
+.limit-val { font-size: 13px; color: var(--text-secondary); min-width: 54px; text-align: right; font-variant-numeric: tabular-nums; }
+.limit-val.bind { color: var(--accent); font-weight: 600; }
+
+/* Alternador (kg / bolsas) */
+.seg { display: inline-flex; background: var(--surface-2); border: 0.5px solid var(--border-strong); border-radius: var(--radius); padding: 3px; gap: 3px; }
+.seg button { border: none; background: transparent; color: var(--text-secondary); font-size: 14px; font-weight: 500; padding: 8px 16px; border-radius: 7px; min-height: 40px; }
+.seg button.on { background: var(--accent); color: var(--accent-contrast); }
+
+/* Barra de ação (salvar) */
+.save-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 18px; }
+.feedback { font-size: 14px; }
+.feedback.ok { color: var(--accent); }
+.feedback.erro { color: var(--danger); }
+
+.aviso {
+  background: var(--warning-bg); color: var(--warning);
+  padding: 11px 14px; border-radius: var(--radius); font-size: 13.5px; margin-top: 12px;
+}
+.result-highlight {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  padding: 14px 16px; background: var(--accent-bg); border-radius: var(--radius); margin-top: 4px;
+}
+.result-highlight .rh-label { font-size: 14px; color: var(--text-secondary); }
+.result-highlight .rh-val { font-size: 26px; font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; }
+
+/* ===================== ESTOQUE E LOTES (passo 3) ===================== */
+
+.tabs-bar { margin-bottom: 18px; }
+
+.lote-item {
+  border: 0.5px solid var(--border); border-radius: var(--radius);
+  padding: 14px 16px; background: var(--surface);
+}
+.lote-item + .lote-item { margin-top: 10px; }
+.lote-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.lote-code { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.lote-qty { font-size: 16px; font-weight: 600; }
+.lote-qty small { font-weight: 500; color: var(--text-muted); font-size: 13px; }
+.lote-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.lote-actions .btn { min-height: 40px; padding: 0 14px; font-size: 14px; }
+
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 100px; font-size: 12px; font-weight: 500; }
+.pill-composto { background: var(--surface-2); color: var(--text-secondary); }
+.pill-spawn { background: var(--accent-bg); color: var(--accent); }
+.pill-producao { background: rgba(232,178,58,0.13); color: var(--warning); }
+
+.prazo { font-size: 12.5px; margin-left: auto; font-variant-numeric: tabular-nums; }
+.prazo.ok { color: var(--text-muted); }
+.prazo.pronto { color: var(--accent); font-weight: 600; }
+
+.picker { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.picker span { font-size: 13px; color: var(--text-secondary); }
+.picker .btn { min-height: 38px; padding: 0 14px; }
+
+.mov-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 2px; border-bottom: 0.5px solid var(--border);
+}
+.mov-row:last-child { border-bottom: none; }
+.mov-main { flex: 1; min-width: 0; }
+.mov-item { font-size: 14px; font-weight: 500; }
+.mov-sub { font-size: 12px; color: var(--text-muted); }
+.mov-qty { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mov-qty.pos { color: var(--accent); }
+.mov-qty.neg { color: var(--danger); }
+.mov-cancel-btn { background: none; border: none; color: var(--text-muted); font-size: 13px; padding: 6px 8px; border-radius: 6px; }
+.mov-cancel-btn:hover { color: var(--danger); background: var(--danger-bg); }
+.cancelado { opacity: 0.5; }
+.cancelado .mov-item { text-decoration: line-through; }
+
+.group-label { font-size: 12.5px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 18px 0 10px; }
+.preview-box { background: var(--surface-2); border-radius: var(--radius); padding: 12px 14px; font-size: 13.5px; color: var(--text-secondary); margin-top: 4px; line-height: 1.6; }
+.select {
+  height: 44px; padding: 0 12px; background: var(--surface-2);
+  border: 0.5px solid var(--border-strong); border-radius: var(--radius);
+  color: var(--text); font-size: 15px; width: 100%;
+}
+details.concluidos { margin-top: 20px; }
+details.concluidos summary { cursor: pointer; font-size: 14px; color: var(--text-secondary); padding: 8px 0; }
+
+/* ===================== ASSISTENTE (passo 6) ===================== */
+.assist-status {
+  font-size: 13.5px; color: var(--text-secondary);
+  padding: 10px 12px; background: var(--surface-2); border-radius: var(--radius); margin-bottom: 12px;
+}
+.assist-rec { display: flex; flex-direction: column; gap: 8px; }
+.assist-line { font-size: 14.5px; line-height: 1.5; color: var(--text); }
+.assist-emph { color: var(--accent); font-weight: 600; }
+.assist-sub { font-size: 13px; color: var(--text-muted); }
+.assist-prep {
+  font-size: 13.5px; line-height: 1.5; color: var(--text-secondary);
+  padding: 10px 12px; background: var(--accent-bg); border-radius: var(--radius); margin-top: 4px;
+}
+.assist-proj-note { font-size: 13px; color: var(--text-secondary); margin-top: 10px; line-height: 1.5; }
+.assist-exp { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
+.exp-row {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  padding: 9px 0; border-bottom: 0.5px solid var(--border); font-size: 14px;
+}
+.exp-row:last-child { border-bottom: none; }
+.exp-row span:first-child { color: var(--text-secondary); }
+.exp-row small { color: var(--text-muted); font-weight: 400; }
+
+/* ===================== EXPORTAÇÃO ===================== */
+.export-bar { display: flex; align-items: center; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+.export-bar span { font-size: 12.5px; color: var(--text-muted); margin-right: 2px; }
+.export-bar .btn { min-height: 36px; padding: 0 14px; font-size: 13px; }
