@@ -190,3 +190,65 @@ export function contaminacaoPorLote(lotes: Lote[], op: PeriodoOpcao): ResumoCont
     producaoPct: prodB > 0 ? (prodC / prodB) * 100 : null,
   }
 }
+
+// ---- Controle estatístico (SPC): carta p da contaminação por lote ----
+// Carta de proporção (p-chart): a linha central é a fração média de bolsas
+// contaminadas; o limite superior varia com o tamanho do lote (3 sigma). Lotes
+// acima do limite têm "causa especial" e merecem investigação.
+import type { Contaminacao, CausaContaminacao } from './contaminacao'
+
+export type SPCContam = {
+  pontos: Ponto[]              // % contaminada por lote (ordem de início)
+  ucl: Ponto[]                 // limite superior de controle por lote
+  centro: number               // linha central (média, em %)
+  fora: { codigo: string; pct: number }[] // lotes acima do limite
+  n: number
+}
+
+export function spcContaminacao(lotes: Lote[], op: PeriodoOpcao): SPCContam {
+  const desde = desdeDoPeriodo(op)
+  const t0 = desde ? desde.getTime() : -Infinity
+  const rel = lotes
+    .filter((l) => !l.cancelado_em && l.tipo === 'producao' && (l.bolsas ?? 0) > 0 && new Date(l.iniciado_em).getTime() >= t0)
+    .sort((a, b) => new Date(a.iniciado_em).getTime() - new Date(b.iniciado_em).getTime())
+
+  const totalB = rel.reduce((s, l) => s + Number(l.bolsas), 0)
+  const totalC = rel.reduce((s, l) => s + Number(l.bolsas_contaminadas ?? 0), 0)
+  const pBar = totalB > 0 ? totalC / totalB : 0
+
+  const pontos: Ponto[] = []
+  const ucl: Ponto[] = []
+  const fora: { codigo: string; pct: number }[] = []
+  for (const l of rel) {
+    const b = Number(l.bolsas)
+    const p = b > 0 ? Number(l.bolsas_contaminadas ?? 0) / b : 0
+    const sigma = b > 0 ? Math.sqrt((pBar * (1 - pBar)) / b) : 0
+    const lim = Math.min(1, pBar + 3 * sigma)
+    const label = ddmm(new Date(l.iniciado_em))
+    pontos.push({ label, valor: p * 100 })
+    ucl.push({ label, valor: lim * 100 })
+    if (p > lim && b > 0) fora.push({ codigo: l.codigo, pct: p * 100 })
+  }
+  return { pontos, ucl, centro: pBar * 100, fora, n: rel.length }
+}
+
+// ---- Pareto das causas de contaminação (eventos) ----
+export type ParetoItem = { causa: CausaContaminacao; quantidade: number; pct: number; acumuladoPct: number }
+export function paretoContaminacao(contaminacoes: Contaminacao[], op: PeriodoOpcao): { itens: ParetoItem[]; total: number } {
+  const desde = desdeDoPeriodo(op)
+  const t0 = desde ? desde.getTime() : -Infinity
+  const mapa = new Map<CausaContaminacao, number>()
+  for (const c of contaminacoes) {
+    if (c.cancelado_em) continue
+    if (new Date(c.criado_em).getTime() < t0) continue
+    mapa.set(c.causa, (mapa.get(c.causa) ?? 0) + Number(c.quantidade))
+  }
+  const total = Array.from(mapa.values()).reduce((s, v) => s + v, 0)
+  const ordenado = Array.from(mapa.entries()).sort((a, b) => b[1] - a[1])
+  let acc = 0
+  const itens: ParetoItem[] = ordenado.map(([causa, quantidade]) => {
+    acc += quantidade
+    return { causa, quantidade, pct: total > 0 ? (quantidade / total) * 100 : 0, acumuladoPct: total > 0 ? (acc / total) * 100 : 0 }
+  })
+  return { itens, total }
+}

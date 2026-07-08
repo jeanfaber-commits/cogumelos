@@ -161,3 +161,37 @@ create policy "colheita_atualizar" on colheita for update to authenticated using
 -- Bolsas perdidas por contaminação, contabilizadas no próprio lote (alimenta
 -- o indicador de sanidade). Coluna adicionada de forma idempotente.
 alter table lote add column if not exists bolsas_contaminadas int not null default 0;
+
+-- ------------------------------------------------ MARCOS DE DATA (LOTE) -----
+-- Datas reais de cada transição, para o app calibrar os tempos das etapas a
+-- partir do próprio histórico (colonização, frutificação e spawn reais).
+alter table lote add column if not exists pronto_em       timestamptz;
+alter table lote add column if not exists frutificacao_em timestamptz;
+alter table lote add column if not exists encerrado_em     timestamptz;
+
+-- ------------------------------------ EVENTOS DE CONTAMINAÇÃO (CAUSA-RAIZ) --
+-- Cada registro de contaminação vira um evento com etapa e causa provável,
+-- para análise de Pareto e correlação. O total por lote continua em
+-- lote.bolsas_contaminadas (para o indicador de sanidade).
+create table if not exists contaminacao (
+  id           bigint generated always as identity primary key,
+  lote_id      bigint not null,
+  quantidade   int not null check (quantidade > 0),
+  etapa        text not null check (etapa in ('spawn','colonizacao','frutificacao')),
+  causa        text not null check (causa in ('spawn','pasteurizacao','manuseio','ambiente','desconhecida','outro')),
+  observacao   text,
+  criado_em    timestamptz not null default now(),
+  criado_por   uuid,
+  cancelado_em timestamptz,
+  cancelado_por uuid
+);
+create index if not exists idx_contaminacao_lote on contaminacao (lote_id);
+create index if not exists idx_contaminacao_data on contaminacao (criado_em);
+
+alter table contaminacao enable row level security;
+drop policy if exists "contam_ler" on contaminacao;
+create policy "contam_ler" on contaminacao for select to authenticated using (true);
+drop policy if exists "contam_inserir" on contaminacao;
+create policy "contam_inserir" on contaminacao for insert to authenticated with check (true);
+drop policy if exists "contam_atualizar" on contaminacao;
+create policy "contam_atualizar" on contaminacao for update to authenticated using (true) with check (true);

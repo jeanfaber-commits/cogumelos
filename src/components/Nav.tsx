@@ -6,7 +6,7 @@ import {
 export type ViewId = 'painel' | 'formulacao' | 'indicadores' | 'producao' | 'colheita' | 'config'
 
 // Rotas que não aparecem na navegação (abertas a partir do Painel).
-export type Rota = ViewId | 'conteinerDetalhe' | 'incubacaoDetalhe'
+export type Rota = ViewId | 'conteinerDetalhe' | 'incubacaoDetalhe' | 'projecaoDetalhe'
 
 type Item = { id: ViewId; label: string; Icon: ComponentType<{ size?: number }> }
 

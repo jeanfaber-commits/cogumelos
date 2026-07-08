@@ -85,6 +85,11 @@ automaticamente) e as regras de segurança. Pode rodar de novo quando quiser —
 seguro. Sem essa etapa, o app calcula normalmente, mas não consegue **salvar** as
 configurações.
 
+> **Atualizando de uma versão anterior?** Rode o `supabase/schema.sql` de novo.
+> Esta versão adiciona marcos de data nos lotes (`pronto_em`, `frutificacao_em`,
+> `encerrado_em`) e a tabela `contaminacao` (eventos com causa). O script é
+> idempotente: aplica só o que falta, sem apagar nada.
+
 ---
 
 ## 3. Publicar no GitHub Pages
@@ -145,6 +150,28 @@ O ciclo completo está no ar: configurar → formular → produzir (estoque e lo
 colher → acompanhar indicadores → decidir com o Assistente. Tudo com histórico auditável
 e o teto sustentável guiando as decisões.
 
-Os gráficos exportam em PNG, PDF e CSV. Melhorias possíveis daqui em diante, se quiser:
-gráficos de ocupação e de eficiência ao longo do tempo usando o histórico dos lotes, e
-refinamentos de multiusuário. É só pedir quando fizer sentido.
+## Novidades desta versão
+
+- **Tempos que se autocalibram.** O app mede o tempo real de colonização, frutificação
+  e spawn nos lotes concluídos (usando os marcos de data) e, com 3+ amostras, passa a
+  usar a mediana real no teto e na projeção, no lugar do valor configurado. Veja em
+  **Indicadores → Tempos reais (calibração)**.
+- **Controle estatístico (SPC).** Carta p da contaminação por lote em Indicadores: linha
+  central (média) e limite de 3σ que varia com o tamanho do lote. Lotes acima do limite
+  (causa especial) são listados para investigação.
+- **Causa-raiz da contaminação.** Ao registrar contaminação, escolha a causa provável
+  (spawn, pasteurização, manuseio, ambiente…). O card **Causa-raiz** mostra o Pareto das
+  causas no período.
+- **Data de início retroativa.** Ao criar um lote, dá para escolher a data — útil para
+  lançar lotes que começaram antes. O código e as previsões ajustam para a data escolhida.
+- **Movimentação parcial para o contêiner.** Ao mover um lote para frutificação, é possível
+  enviar só parte das bolsas (lotes nem sempre são homogêneos). O lote é dividido: a parte
+  movida vira um lote-filho (`-P1`, `-P2`) já frutificando e o restante segue colonizando.
+- **Rótulos de valor nos gráficos de linha**, em cada ponto.
+- **Projeção do contêiner em tela cheia.** Toque no gráfico de projeção (Painel) para abrir
+  em tela cheia, com opção de ver **cada lote como uma linha** — mostra quando cada um sai
+  e libera espaço. Melhor com o celular na horizontal.
+
+Ideias para o futuro, quando fizer sentido: atribuição de rendimento por lote (para
+comparar formulações e spawns), previsão de colheita por fluxos, camada econômica
+(margem e payback em R$) e sensores de CO₂/temperatura/umidade no contêiner.

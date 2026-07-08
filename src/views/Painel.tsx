@@ -4,7 +4,6 @@ import { useDados } from '../context/DadosContext'
 import { producaoNoPeriodo } from '../lib/colheita'
 import Assistente from '../components/Assistente'
 import { useNav } from '../context/NavContext'
-import type { ResultadoTeto } from '../lib/calculos'
 
 const fmt = (n: number, dec = 0) =>
   n.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec })
@@ -23,10 +22,9 @@ function Metric({ label, value, unit, foot }: { label: string; value?: string; u
 }
 
 export default function Painel() {
-  const ctx = useConfig() as ReturnType<typeof useConfig> & { teto: ResultadoTeto }
-  const { config, teto } = ctx
+  const { config } = useConfig()
   const { irPara } = useNav()
-  const { ocupacaoConteinerKg, ocupacaoIncubacaoKg, bolsasFrutificando, colheitas, eficienciaBiologica, sanidade } = useDados()
+  const { ocupacaoConteinerKg, ocupacaoIncubacaoKg, bolsasFrutificando, colheitas, eficienciaBiologica, sanidade, teto } = useDados()
   const producao30 = producaoNoPeriodo(colheitas, new Date(Date.now() - 30 * 86400000))
 
   const capConteiner = config.numeroConteineres * config.capacidadeConteinerKg

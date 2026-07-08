@@ -4,19 +4,20 @@ import { useDados } from '../context/DadosContext'
 import BarChart from '../components/BarChart'
 import LineChart from '../components/LineChart'
 import { baixarPng, baixarPdf } from '../lib/exportar'
-import type { ResultadoTeto } from '../lib/calculos'
 import {
   OPCOES_PERIODO, serieProducao, resumoPeriodo, csvColheitas, acumular,
-  producaoPorTurno, producaoPorConteiner, contaminacaoPorLote, type PeriodoOpcao,
+  producaoPorTurno, producaoPorConteiner, contaminacaoPorLote,
+  spcContaminacao, paretoContaminacao, type PeriodoOpcao,
 } from '../lib/indicadores'
+import { rotuloCausa } from '../lib/contaminacao'
+import { MIN_AMOSTRAS } from '../lib/calibracao'
 
 const fmt = (n: number, dec = 1) =>
   (isFinite(n) ? n : 0).toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec })
 
 export default function Indicadores() {
-  const ctx = useConfig() as ReturnType<typeof useConfig> & { teto: ResultadoTeto }
-  const { config, teto } = ctx
-  const { colheitas, lotes, eficienciaBiologica, sanidade, carregando } = useDados()
+  const { config } = useConfig()
+  const { colheitas, lotes, eficienciaBiologica, sanidade, carregando, teto, temposReais, contaminacoes } = useDados()
   const [periodo, setPeriodo] = useState<PeriodoOpcao>('30')
   const [modo, setModo] = useState<'barras' | 'acumulado'>('barras')
   const chartRef = useRef<HTMLDivElement>(null)
@@ -27,6 +28,8 @@ export default function Indicadores() {
   const porTurno = producaoPorTurno(colheitas, periodo)
   const porConteiner = producaoPorConteiner(colheitas, periodo)
   const contam = contaminacaoPorLote(lotes, periodo)
+  const spc = spcContaminacao(lotes, periodo)
+  const pareto = paretoContaminacao(contaminacoes, periodo)
 
   const temTurno = porTurno.manha > 0 || porTurno.tarde > 0
   const aproveitamento = teto.producaoPrevistaDia > 0 ? (r.mediaDia / teto.producaoPrevistaDia) * 100 : null
@@ -182,6 +185,74 @@ export default function Indicadores() {
           </div>
         </div>
       )}
+
+      {/* SPC — carta de controle (p) da contaminação */}
+      {spc.n >= 2 && (
+        <div className="card">
+          <div className="section-title" style={{ marginBottom: 2 }}>Controle estatístico (contaminação)</div>
+          <div className="section-sub">Carta p: linha central é a média; a tracejada é o limite de 3σ (varia com o tamanho do lote). Pontos acima do limite têm causa especial.</div>
+          <div style={{ marginTop: 10 }}>
+            <LineChart unidade="%" series={[
+              { nome: 'contaminação %', pontos: spc.pontos, cor: 'var(--accent)' },
+              { nome: 'limite 3σ', pontos: spc.ucl, cor: 'var(--danger)', tracejado: true },
+              { nome: 'média', pontos: spc.pontos.map((p) => ({ label: p.label, valor: spc.centro })), cor: 'var(--text-muted)', tracejado: true },
+            ]} />
+          </div>
+          {spc.fora.length > 0 ? (
+            <div className="assist-prep" style={{ marginTop: 8 }}>
+              <b>{spc.fora.length} lote(s) acima do limite</b> — investigar: {spc.fora.map((f) => `${f.codigo} (${fmt(f.pct, 1)}%)`).join(', ')}.
+            </div>
+          ) : (
+            <div className="help" style={{ marginTop: 8 }}>Nenhum lote fora de controle no período — processo estável.</div>
+          )}
+        </div>
+      )}
+
+      {/* Causa-raiz — Pareto das causas de contaminação */}
+      {pareto.total > 0 && (
+        <div className="card">
+          <div className="section-title" style={{ marginBottom: 2 }}>Causa-raiz da contaminação</div>
+          <div className="section-sub">Bolsas perdidas por causa registrada, da maior para a menor (Pareto).</div>
+          <div style={{ marginTop: 10 }}>
+            <BarChart pontos={pareto.itens.map((i) => ({ label: rotuloCausa(i.causa), valor: i.quantidade }))} unidade="bolsas" />
+          </div>
+          <div className="pareto-list">
+            {pareto.itens.map((i) => (
+              <div className="pareto-row" key={i.causa}>
+                <span>{rotuloCausa(i.causa)}</span>
+                <span className="tnum">{i.quantidade} · {fmt(i.pct, 0)}% <small>(acum. {fmt(i.acumuladoPct, 0)}%)</small></span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tempos calibrados — o app aprende os tempos reais com o uso */}
+      <div className="card">
+        <div className="section-title" style={{ marginBottom: 2 }}>Tempos reais (calibração)</div>
+        <div className="section-sub">Medianas medidas nos lotes concluídos. Com {MIN_AMOSTRAS}+ amostras, passam a alimentar o teto e a projeção no lugar do valor configurado.</div>
+        <div className="calib-list">
+          {([
+            ['Colonização', temposReais.colonizacao, config.tempoColonizacao],
+            ['Frutificação', temposReais.frutificacao, config.tempoFrutificacao],
+            ['Spawn', temposReais.spawn, config.tempoSpawn],
+          ] as const).map(([nome, real, padrao]) => {
+            const aplicando = real.amostras >= MIN_AMOSTRAS && real.mediana != null
+            return (
+              <div className="calib-row" key={nome}>
+                <span className="calib-nome">{nome}</span>
+                <span className="tnum">
+                  {real.mediana == null ? '—' : `${fmt(real.mediana, 1)} d`}
+                  <small> real · config {padrao} d</small>
+                </span>
+                <span className={`calib-tag ${aplicando ? 'on' : ''}`}>
+                  {real.amostras === 0 ? 'sem dados' : aplicando ? `usando (${real.amostras})` : `${real.amostras}/${MIN_AMOSTRAS}`}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
 
       {/* Indicadores acumulados */}
       <div className="grid grid-metrics">

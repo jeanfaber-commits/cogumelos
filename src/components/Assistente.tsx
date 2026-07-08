@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react'
-import { useConfig } from '../context/ConfigContext'
 import { useDados } from '../context/DadosContext'
+import { useNav } from '../context/NavContext'
 import LineChart from './LineChart'
 import { baixarPng, baixarPdf } from '../lib/exportar'
-import { capacidadeNecessaria, tetoSustentavel } from '../lib/calculos'
+import { capacidadeNecessaria } from '../lib/calculos'
 import { diagnostico, planoInicio, serieProjecao, diasSustentandoTeto } from '../lib/assistente'
 import { IconMushroom } from '../icons'
 
@@ -22,8 +22,8 @@ const MOTIVO: Record<string, string> = {
 }
 
 export default function Assistente() {
-  const { config } = useConfig()
-  const { lotes, saldos } = useDados()
+  const { lotes, saldos, configEfetiva: config, teto } = useDados()
+  const { irPara } = useNav()
   const [meta, setMeta] = useState(90)
   const projRef = useRef<HTMLDivElement>(null)
 
@@ -31,7 +31,6 @@ export default function Assistente() {
   const plano = planoInicio(lotes, config, saldos)
   const proj = serieProjecao(lotes, config)
   const dias = diasSustentandoTeto(lotes, config)
-  const teto = tetoSustentavel(config)
   const metas = [75, 80, 90, 100].filter((m) => m > Math.ceil(teto.tetoPct))
   const metaSel = metas.includes(meta) ? meta : (metas[0] ?? 100)
   const conteinerLimitante = teto.gargalo === 'conteiner' || metas.length === 0
@@ -104,9 +103,12 @@ export default function Assistente() {
       <div className="card">
         <div className="section-title" style={{ marginBottom: 2 }}>Projeção do contêiner</div>
         <div className="section-sub">Ocupação prevista (kg) com o pipeline atual, sem novos lotes. A linha é o teto.</div>
-        <div ref={projRef}>
-          <LineChart pontos={proj} unidade="kg" referencia={{ valor: d.tetoKg, label: `teto ${fmt(d.tetoKg)} kg` }} />
-        </div>
+        <button className="chart-open" onClick={() => irPara('projecaoDetalhe')} title="Abrir em tela cheia">
+          <div ref={projRef}>
+            <LineChart pontos={proj} unidade="kg" referencia={{ valor: d.tetoKg, label: `teto ${fmt(d.tetoKg)} kg` }} />
+          </div>
+          <span className="chart-open-hint">toque para ampliar e ver por lote</span>
+        </button>
         <div className="export-bar">
           <span>Exportar:</span>
           <button className="btn btn-ghost" onClick={() => exportarProj('png')}>PNG</button>

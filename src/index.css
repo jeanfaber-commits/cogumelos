@@ -532,3 +532,44 @@ details.concluidos summary { cursor: pointer; font-size: 14px; color: var(--text
 
 .codigo-lote { font-size: 13px; color: var(--text-secondary); margin-bottom: 10px; }
 .codigo-lote b { color: var(--accent); font-variant-numeric: tabular-nums; }
+
+/* Ícone de atualizar girando enquanto busca dados */
+@keyframes girar { to { transform: rotate(360deg); } }
+.girando { animation: girar 0.8s linear infinite; transform-origin: center; }
+
+.in-cell.sel { width: auto; min-width: 120px; padding: 6px 8px; }
+.picker-hint { color: var(--text-muted); }
+
+.tag-retro { font-size: 11px; color: var(--warning); font-weight: 600; margin-left: 6px; }
+input.in-cell[type="date"] { width: auto; }
+
+/* Legenda de gráfico multi-linha */
+.linechart { width: 100%; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-bottom: 6px; font-size: 12px; color: var(--text-secondary); }
+.chart-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.chart-legend i { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
+
+/* Gráfico clicável para abrir em tela cheia */
+.chart-open { display: block; width: 100%; text-align: left; background: none; border: none; padding: 0; cursor: pointer; }
+.chart-open-hint { display: block; text-align: center; font-size: 12px; color: var(--accent); margin-top: 2px; }
+
+/* Projeção em tela cheia */
+.projecao-full { padding: 12px; }
+.rotate-hint { display: none; font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
+@media (max-width: 860px) and (orientation: portrait) {
+  .rotate-hint { display: block; }
+}
+
+/* Lista do Pareto de causas */
+.pareto-list { margin-top: 10px; display: flex; flex-direction: column; gap: 2px; }
+.pareto-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-top: 1px solid var(--border); font-size: 14px; }
+.pareto-row small { color: var(--text-muted); }
+
+/* Lista de tempos calibrados */
+.calib-list { margin-top: 10px; display: flex; flex-direction: column; gap: 2px; }
+.calib-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--border); font-size: 14px; }
+.calib-nome { flex: 0 0 96px; font-weight: 600; }
+.calib-row .tnum { flex: 1; }
+.calib-row small { color: var(--text-muted); }
+.calib-tag { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--text-muted); white-space: nowrap; }
+.calib-tag.on { background: var(--accent-bg); color: var(--accent); font-weight: 600; }

@@ -4,8 +4,10 @@ import { useDados } from '../context/DadosContext'
 import { supabaseConfigured } from '../lib/supabase'
 import { ITENS_ESTOQUE, ROTULO_TIPO, nomeItem, type ItemEstoque } from '../lib/estoque'
 import { emAndamento, rotuloTipoLote, rotuloEtapa, gerarCodigoLote, type Lote, type TipoLote } from '../lib/lotes'
+import { CAUSAS, rotuloCausa, type CausaContaminacao } from '../lib/contaminacao'
 
 const unidadeItem = (it: ItemEstoque) => ITENS_ESTOQUE.find((i) => i.id === it)?.unidade ?? 'kg'
+const hojeISO = () => { const d = new Date(); const p = (x: number) => String(x).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` }
 
 const fmt = (n: number, dec = 1) =>
   (isFinite(n) ? n : 0).toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec })
@@ -22,9 +24,11 @@ function prazo(l: Lote): { texto: string; tom: 'ok' | 'pronto' } | null {
 function LoteItem({ l }: { l: Lote }) {
   const { config } = useConfig()
   const { loteMarcarPronto, loteMoverConteiner, loteEncerrar, loteCancelar, loteContaminacao } = useDados()
-  const [escolhendo, setEscolhendo] = useState(false)
+  const [movendo, setMovendo] = useState(false)
+  const [bolsasMover, setBolsasMover] = useState('')
   const [contaminando, setContaminando] = useState(false)
   const [qtdCont, setQtdCont] = useState('')
+  const [causaCont, setCausaCont] = useState<CausaContaminacao>('desconhecida')
   const [ocupado, setOcupado] = useState(false)
   const p = prazo(l)
 
@@ -32,11 +36,17 @@ function LoteItem({ l }: { l: Lote }) {
     setOcupado(true); const erro = await fn(); setOcupado(false)
     if (erro) alert(erro)
   }
-  const mover = async (conteiner: number) => { setEscolhendo(false); await agir(() => loteMoverConteiner(l, conteiner)) }
+  const abrirMover = () => { setBolsasMover(String(l.bolsas ?? '')); setMovendo(true) }
+  const mover = async (conteiner: number) => {
+    const raw = Math.round(Number(bolsasMover) || 0)
+    const nb = l.bolsas && raw > 0 && raw < l.bolsas ? raw : null // null = mover tudo
+    setMovendo(false)
+    await agir(() => loteMoverConteiner(l, conteiner, nb))
+  }
   const confirmarCont = async () => {
     const nb = Math.round(Number(qtdCont) || 0)
     setContaminando(false); setQtdCont('')
-    if (nb > 0) await agir(() => loteContaminacao(l, nb))
+    if (nb > 0) await agir(() => loteContaminacao(l, nb, causaCont))
   }
 
   const contaminadas = Number(l.bolsas_contaminadas ?? 0)
@@ -57,19 +67,33 @@ function LoteItem({ l }: { l: Lote }) {
         {contaminadas > 0 ? ` · ${contaminadas} contaminadas` : ''}
       </div>
 
-      {escolhendo ? (
+      {movendo ? (
         <div className="picker">
-          <span>Qual contêiner?</span>
-          {Array.from({ length: Math.max(1, config.numeroConteineres) }, (_, i) => i + 1).map((num) => (
-            <button key={num} className="btn" onClick={() => mover(num)}>{num}</button>
-          ))}
-          <button className="btn btn-ghost" onClick={() => setEscolhendo(false)}>cancelar</button>
+          <span>Mover p/ contêiner</span>
+          {l.bolsas ? (
+            <>
+              <input className="in-cell" style={{ width: 64 }} type="number" inputMode="numeric"
+                value={bolsasMover} onChange={(e) => setBolsasMover(e.target.value)} />
+              <small className="picker-hint">de {l.bolsas} bolsas</small>
+            </>
+          ) : null}
+          {config.numeroConteineres > 1 ? (
+            Array.from({ length: config.numeroConteineres }, (_, i) => i + 1).map((num) => (
+              <button key={num} className="btn" onClick={() => mover(num)}>cont. {num}</button>
+            ))
+          ) : (
+            <button className="btn btn-primary" onClick={() => mover(1)}>Mover</button>
+          )}
+          <button className="btn btn-ghost" onClick={() => setMovendo(false)}>cancelar</button>
         </div>
       ) : contaminando ? (
         <div className="picker">
-          <span>Bolsas contaminadas:</span>
-          <input className="in-cell" style={{ width: 72 }} type="number" inputMode="numeric"
+          <span>Contaminação:</span>
+          <input className="in-cell" style={{ width: 56 }} type="number" inputMode="numeric" placeholder="bolsas"
             value={qtdCont} onChange={(e) => setQtdCont(e.target.value)} />
+          <select className="in-cell sel" value={causaCont} onChange={(e) => setCausaCont(e.target.value as CausaContaminacao)}>
+            {CAUSAS.map((c) => <option key={c} value={c}>{rotuloCausa(c)}</option>)}
+          </select>
           <button className="btn" onClick={confirmarCont}>Registrar</button>
           <button className="btn btn-ghost" onClick={() => setContaminando(false)}>cancelar</button>
         </div>
@@ -81,8 +105,7 @@ function LoteItem({ l }: { l: Lote }) {
             </button>
           )}
           {l.tipo === 'producao' && l.etapa === 'colonizando' && (
-            <button className="btn btn-primary" disabled={ocupado}
-              onClick={() => (config.numeroConteineres > 1 ? setEscolhendo(true) : mover(1))}>
+            <button className="btn btn-primary" disabled={ocupado} onClick={abrirMover}>
               Mover p/ contêiner
             </button>
           )}
@@ -110,6 +133,7 @@ function AbaLotes() {
   const [tipo, setTipo] = useState<TipoLote>('producao')
   const [valor, setValor] = useState('100')
   const [pesoBolsa, setPesoBolsa] = useState(pesoPadrao('producao'))
+  const [dataInicio, setDataInicio] = useState(hojeISO())
   const [ocupado, setOcupado] = useState(false)
 
   const trocarTipo = (t: TipoLote) => { setTipo(t); setPesoBolsa(pesoPadrao(t)) }
@@ -118,7 +142,9 @@ function AbaLotes() {
   const n = Number(valor) || 0
   const kg = emBolsas ? n * (pesoBolsa || 0) : n
   const bolsas = emBolsas ? Math.round(n) : null
-  const proximoCodigo = gerarCodigoLote(tipo, lotes)
+  const dataRef = dataInicio ? new Date(dataInicio + 'T12:00:00') : undefined
+  const retroativa = !!dataInicio && dataInicio !== hojeISO()
+  const proximoCodigo = gerarCodigoLote(tipo, lotes, dataRef)
 
   let previa = ''
   let insuf = false
@@ -137,7 +163,7 @@ function AbaLotes() {
 
   const criar = async () => {
     if (kg <= 0) return
-    setOcupado(true); const erro = await novoLote(tipo, kg, bolsas); setOcupado(false)
+    setOcupado(true); const erro = await novoLote(tipo, kg, bolsas, retroativa ? dataRef : undefined); setOcupado(false)
     if (erro) alert(erro)
   }
 
@@ -174,6 +200,12 @@ function AbaLotes() {
               </div>
             </div>
           )}
+        </div>
+
+        <div className="num-field" style={{ maxWidth: 220, marginBottom: 6 }}>
+          <label>Data de início {retroativa && <span className="tag-retro">retroativa</span>}</label>
+          <input className="in-cell" type="date" max={hojeISO()} value={dataInicio}
+            onChange={(e) => setDataInicio(e.target.value)} />
         </div>
 
         <div className="codigo-lote">Código do lote: <b>{proximoCodigo}</b>{emBolsas ? ` · total ${fmt(kg, 0)} kg` : ''}</div>

@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 import { NavProvider } from '../context/NavContext'
+import { useDados } from '../context/DadosContext'
 import { NAV_ITEMS, type Rota } from './Nav'
-import { IconMushroom, IconSun, IconMoon, IconLogout } from '../icons'
+import { IconMushroom, IconSun, IconMoon, IconLogout, IconRefresh } from '../icons'
 
 import Painel from '../views/Painel'
 import Formulacao from '../views/Formulacao'
@@ -13,6 +14,7 @@ import Colheita from '../views/Colheita'
 import Configuracoes from '../views/Configuracoes'
 import ConteinerDetalhe from '../views/ConteinerDetalhe'
 import IncubacaoDetalhe from '../views/IncubacaoDetalhe'
+import ProjecaoDetalhe from '../views/ProjecaoDetalhe'
 
 const VIEWS: Record<Rota, () => JSX.Element> = {
   painel: Painel,
@@ -23,15 +25,23 @@ const VIEWS: Record<Rota, () => JSX.Element> = {
   config: Configuracoes,
   conteinerDetalhe: ConteinerDetalhe,
   incubacaoDetalhe: IncubacaoDetalhe,
+  projecaoDetalhe: ProjecaoDetalhe,
 }
 
 // Rotas de detalhe destacam "Painel" na navegação.
-const DETALHES: Rota[] = ['conteinerDetalhe', 'incubacaoDetalhe']
+const DETALHES: Rota[] = ['conteinerDetalhe', 'incubacaoDetalhe', 'projecaoDetalhe']
 
 export default function AppShell() {
   const [rota, setRota] = useState<Rota>('painel')
   const { theme, toggle } = useTheme()
   const { signOut } = useAuth()
+  const { recarregar } = useDados()
+  const [atualizando, setAtualizando] = useState(false)
+  const atualizar = async () => {
+    if (atualizando) return
+    setAtualizando(true)
+    try { await recarregar() } finally { setAtualizando(false) }
+  }
   const View = VIEWS[rota]
   const ativo = (id: Rota) => rota === id || (id === 'painel' && DETALHES.includes(rota))
 
@@ -75,6 +85,10 @@ export default function AppShell() {
             <div className="brand-name">Cogumelos</div>
           </div>
           <div style={{ display: 'flex', gap: 4 }}>
+            <button className="btn btn-ghost" style={{ padding: '0 12px', minWidth: 48 }}
+              onClick={atualizar} aria-label="Atualizar dados">
+              <IconRefresh size={20} className={atualizando ? 'girando' : undefined} />
+            </button>
             <button className="btn btn-ghost" style={{ padding: '0 12px', minWidth: 48 }}
               onClick={toggle} aria-label="Alternar tema">
               {theme === 'dark' ? <IconSun size={20} /> : <IconMoon size={20} />}

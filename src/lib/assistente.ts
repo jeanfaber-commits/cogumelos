@@ -111,3 +111,37 @@ export function serieProjecao(lotes: Lote[], c: Config, dias = 63, passo = 7): P
   }
   return pontos
 }
+
+// Projeção com uma linha por lote: cada lote de produção (frutificando ou
+// colonizando) vira uma série com a sua contribuição de kg ao longo do tempo.
+// A soma reproduz a projeção total. Serve para ver quando cada lote sai.
+export function serieProjecaoPorLote(
+  lotes: Lote[], c: Config, dias = 63, passo = 7,
+): { series: { nome: string; pontos: Ponto[] }[]; total: Ponto[] } {
+  const passos: number[] = []
+  for (let i = 0; i <= dias; i += passo) passos.push(i)
+  const rotulo = (i: number) => ddmm(new Date(Date.now() + i * DIA))
+
+  const itens: { l: Lote; contrib: (dia: number) => number }[] = []
+  for (const l of lotes) {
+    if (l.cancelado_em || l.tipo !== 'producao' || !l.previsto_para) continue
+    const kg = Number(l.quantidade_kg)
+    if (l.etapa === 'frutificando') {
+      const sai = (new Date(l.previsto_para).getTime() - Date.now()) / DIA
+      itens.push({ l, contrib: (dia) => (dia < sai ? kg : 0) })
+    } else if (l.etapa === 'colonizando') {
+      const entra = (new Date(l.previsto_para).getTime() - Date.now()) / DIA
+      const sai = entra + c.tempoFrutificacao
+      itens.push({ l, contrib: (dia) => (dia >= entra && dia < sai ? kg : 0) })
+    }
+  }
+  const ativos = itens.filter((it) => passos.some((d) => it.contrib(d) > 0))
+  const series = ativos.map((it) => ({
+    nome: it.l.codigo,
+    pontos: passos.map((d) => ({ label: rotulo(d), valor: Math.round(it.contrib(d)) })),
+  }))
+  const total: Ponto[] = passos.map((d) => ({
+    label: rotulo(d), valor: Math.round(ativos.reduce((s, it) => s + it.contrib(d), 0)),
+  }))
+  return { series, total }
+}
