@@ -116,3 +116,77 @@ export function csvColheitas(colheitas: Colheita[], op: PeriodoOpcao): string {
   })
   return [cab, ...corpo].join('\n')
 }
+
+// ---- Produção por turno no período (manhã vs tarde) ----
+export type PorTurno = { manha: number; tarde: number; semTurno: number; total: number }
+export function producaoPorTurno(colheitas: Colheita[], op: PeriodoOpcao): PorTurno {
+  const desde = desdeDoPeriodo(op)
+  const t0 = desde ? desde.getTime() : -Infinity
+  let manha = 0, tarde = 0, semTurno = 0
+  for (const c of ativas(colheitas)) {
+    if (new Date(c.colhido_em).getTime() < t0) continue
+    if (c.turno === 'manha') manha += Number(c.peso_kg)
+    else if (c.turno === 'tarde') tarde += Number(c.peso_kg)
+    else semTurno += Number(c.peso_kg)
+  }
+  return { manha, tarde, semTurno, total: manha + tarde + semTurno }
+}
+
+// ---- Produção acumulada a partir de uma série diária/semanal ----
+export function acumular(pontos: Ponto[]): Ponto[] {
+  let soma = 0
+  return pontos.map((p) => { soma += p.valor; return { label: p.label, valor: soma } })
+}
+
+// ---- Produção por contêiner no período ----
+export function producaoPorConteiner(colheitas: Colheita[], op: PeriodoOpcao): Ponto[] {
+  const desde = desdeDoPeriodo(op)
+  const t0 = desde ? desde.getTime() : -Infinity
+  const mapa = new Map<number, number>()
+  for (const c of ativas(colheitas)) {
+    if (new Date(c.colhido_em).getTime() < t0) continue
+    mapa.set(c.conteiner, (mapa.get(c.conteiner) ?? 0) + Number(c.peso_kg))
+  }
+  return Array.from(mapa.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([num, kg]) => ({ label: `Contêiner ${num}`, valor: kg }))
+}
+
+// ---- Contaminação por lote (cada lote com bolsas, em ordem de início) ----
+// Binar por dia produziria muitos zeros (lotes não começam todo dia), então
+// mostramos um ponto por lote: a % de bolsas contaminadas daquele lote.
+import type { Lote, TipoLote } from './lotes'
+
+export type ContamLote = { codigo: string; tipo: TipoLote; label: string; pct: number; contaminadas: number; bolsas: number }
+export type ResumoContam = {
+  pontos: Ponto[]; itens: ContamLote[]
+  mediaPct: number; totalContaminadas: number; totalBolsas: number
+  spawnPct: number | null; producaoPct: number | null
+}
+
+export function contaminacaoPorLote(lotes: Lote[], op: PeriodoOpcao): ResumoContam {
+  const desde = desdeDoPeriodo(op)
+  const t0 = desde ? desde.getTime() : -Infinity
+  const relevantes = lotes
+    .filter((l) => !l.cancelado_em && (l.bolsas ?? 0) > 0 && new Date(l.iniciado_em).getTime() >= t0)
+    .sort((a, b) => new Date(a.iniciado_em).getTime() - new Date(b.iniciado_em).getTime())
+
+  const itens: ContamLote[] = []
+  let totalC = 0, totalB = 0, spawnC = 0, spawnB = 0, prodC = 0, prodB = 0
+  for (const l of relevantes) {
+    const b = Number(l.bolsas)
+    const c = Number(l.bolsas_contaminadas ?? 0)
+    itens.push({ codigo: l.codigo, tipo: l.tipo, label: ddmm(new Date(l.iniciado_em)), pct: b > 0 ? (c / b) * 100 : 0, contaminadas: c, bolsas: b })
+    totalC += c; totalB += b
+    if (l.tipo === 'spawn') { spawnC += c; spawnB += b }
+    else if (l.tipo === 'producao') { prodC += c; prodB += b }
+  }
+  return {
+    pontos: itens.map((i) => ({ label: i.label, valor: i.pct })),
+    itens,
+    mediaPct: totalB > 0 ? (totalC / totalB) * 100 : 0,
+    totalContaminadas: totalC, totalBolsas: totalB,
+    spawnPct: spawnB > 0 ? (spawnC / spawnB) * 100 : null,
+    producaoPct: prodB > 0 ? (prodC / prodB) * 100 : null,
+  }
+}

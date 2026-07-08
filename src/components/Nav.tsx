@@ -5,6 +5,9 @@ import {
 
 export type ViewId = 'painel' | 'formulacao' | 'indicadores' | 'producao' | 'colheita' | 'config'
 
+// Rotas que não aparecem na navegação (abertas a partir do Painel).
+export type Rota = ViewId | 'conteinerDetalhe' | 'incubacaoDetalhe'
+
 type Item = { id: ViewId; label: string; Icon: ComponentType<{ size?: number }> }
 
 // Ordem fixa de navegação. Adicionar uma nova tela é só incluir aqui.

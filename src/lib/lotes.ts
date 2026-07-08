@@ -74,10 +74,16 @@ export function bolsasFrutificando(lotes: Lote[]): number {
 function emDias(n: number): string {
   return new Date(Date.now() + n * 86400000).toISOString()
 }
-function gerarCodigo(prefixo: string): string {
+const PREFIXO: Record<TipoLote, string> = { spawn: 'SW', composto: 'SO', producao: 'PR' }
+
+// Gera o código do lote no formato PREFIXO-AAMMDD, com sufixo sequencial se já
+// houver outro lote do mesmo tipo no mesmo dia (ex.: SW-260707, SW-260707-2).
+export function gerarCodigoLote(tipo: TipoLote, lotes: Lote[]): string {
   const d = new Date()
   const p = (x: number) => String(x).padStart(2, '0')
-  return `${prefixo}-${String(d.getFullYear()).slice(2)}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`
+  const base = `${PREFIXO[tipo]}-${String(d.getFullYear()).slice(2)}${p(d.getMonth() + 1)}${p(d.getDate())}`
+  const n = lotes.filter((l) => l.codigo === base || l.codigo.startsWith(base + '-')).length
+  return n === 0 ? base : `${base}-${n + 1}`
 }
 
 export async function listarLotes(): Promise<Lote[]> {
@@ -118,32 +124,30 @@ async function criarLote(
   return null
 }
 
-export function criarLoteComposto(c: Config, kg: number, userId?: string) {
+export function criarLoteComposto(c: Config, kg: number, codigo: string, userId?: string) {
   return criarLote(
-    { codigo: gerarCodigo('CMP'), tipo: 'composto', etapa: 'preparo', quantidade_kg: kg, bolsas: null, previsto_para: emDias(c.tempoPreparoComposto) },
+    { codigo, tipo: 'composto', etapa: 'preparo', quantidade_kg: kg, bolsas: null, previsto_para: emDias(c.tempoPreparoComposto) },
     [], userId,
   )
 }
 
-export function criarLoteSpawn(c: Config, kg: number, userId?: string) {
+export function criarLoteSpawn(c: Config, kg: number, bolsas: number | null, codigo: string, userId?: string) {
   const sorgo = kg * c.sorgoSecoPorSpawn
-  const cl = kg * (c.clNoSorgoPct / 100)
-  const bolsas = c.pesoBolsaSpawnKg > 0 ? Math.round(kg / c.pesoBolsaSpawnKg) : null
+  const clMl = kg * (c.clNoSorgoPct / 100) * 1000 // CL em mL (densidade 1 L = 1 kg)
   return criarLote(
-    { codigo: gerarCodigo('SPW'), tipo: 'spawn', etapa: 'incubando', quantidade_kg: kg, bolsas, previsto_para: emDias(c.tempoSpawn) },
+    { codigo, tipo: 'spawn', etapa: 'incubando', quantidade_kg: kg, bolsas, previsto_para: emDias(c.tempoSpawn) },
     [
       { item: 'sorgo_seco', quantidade: -sorgo, tipo: 'consumo' },
-      { item: 'cl_f2', quantidade: -cl, tipo: 'consumo' },
+      { item: 'cl_f2', quantidade: -clMl, tipo: 'consumo' },
     ],
     userId,
   )
 }
 
-export function criarLoteProducao(c: Config, kg: number, userId?: string) {
+export function criarLoteProducao(c: Config, kg: number, bolsas: number | null, codigo: string, userId?: string) {
   const spawn = kg * (c.spawnNoSubstratoPct / 100)
-  const bolsas = c.pesoBolsaSubstratoKg > 0 ? Math.round(kg / c.pesoBolsaSubstratoKg) : null
   return criarLote(
-    { codigo: gerarCodigo('PRD'), tipo: 'producao', etapa: 'colonizando', quantidade_kg: kg, bolsas, previsto_para: emDias(c.tempoColonizacao) },
+    { codigo, tipo: 'producao', etapa: 'colonizando', quantidade_kg: kg, bolsas, previsto_para: emDias(c.tempoColonizacao) },
     [
       { item: 'substrato', quantidade: -kg, tipo: 'consumo' },
       { item: 'spawn', quantidade: -spawn, tipo: 'consumo' },

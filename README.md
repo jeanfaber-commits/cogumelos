@@ -5,12 +5,18 @@ Vite + TypeScript, banco e login no Supabase, publicado no GitHub Pages.
 
 Já funcionam: login, tema claro/escuro, layout que se adapta a celular, tablet e
 desktop, **Configurações** (variáveis e capacidades, com o teto recalculado ao vivo),
-**Formulação** (calculadoras de composto e de spawn), **Produção** (estoque em livro-razão
-e lotes com baixa automática e registro de contaminação), **Colheita** (registro contínuo
-por contêiner), **Indicadores** (gráfico de produção por período, resumo e exportação em PNG, PDF e CSV)
-e o **Assistente de produção** no Painel — diagnóstico de ocupação, recomendação do que
-iniciar hoje para manter o contêiner no teto, projeção da ocupação no tempo e planejador
-de expansão. O Painel reúne ocupação, eficiência biológica, sanidade e produção reais.
+**Formulação** (calculadoras de composto e de spawn — a umidade de cada ingrediente é
+digitada na própria tela, com o peso úmido e a água calculados na hora; a cultura líquida
+sai em mL considerando densidade 1 L = 1 kg), **Produção** (estoque em livro-razão
+e lotes com baixa automática e registro de contaminação; ao criar Spawn/Substrato/Produção
+você escolhe o peso por bolsa e o app já mostra o código do lote no formato SW/SO/PR-AAMMDD),
+**Colheita** (registro contínuo por contêiner), **Indicadores** (produção por período em barras
+ou acumulada, quebra por turno, aproveitamento do teto, contaminação por lote ao longo do tempo, eficiência biológica, sanidade e
+exportação em PNG, PDF e CSV) e o **Assistente de produção** no Painel — diagnóstico de ocupação,
+recomendação do que iniciar hoje para manter o contêiner no teto, projeção da ocupação no tempo
+(em linha) e planejador de expansão. No Painel, tocar em **CONTÊINER** ou **SALA DE INCUBAÇÃO**
+abre uma página completa com todos os lotes daquele recurso — datas de entrada, saída/pronto
+prevista e contaminações, lote a lote.
 
 ---
 
@@ -122,8 +128,9 @@ src/
   lib/supabase.ts     conexão com o Supabase
   context/            tema (claro/escuro) e autenticação
   components/         login, esqueleto do app, navegação, indicador de ocupação
-  views/              as seis telas (Painel, Formulação, Indicadores,
-                      Estoque, Colheita, Configurações)
+  views/              as telas (Painel, Formulação, Indicadores,
+                      Estoque, Colheita, Configurações) e as páginas de
+                      detalhe do Contêiner e da Sala de Incubação
   icons/              ícones em SVG (sem biblioteca externa)
 ```
 

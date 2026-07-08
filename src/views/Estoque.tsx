@@ -3,7 +3,9 @@ import { useConfig } from '../context/ConfigContext'
 import { useDados } from '../context/DadosContext'
 import { supabaseConfigured } from '../lib/supabase'
 import { ITENS_ESTOQUE, ROTULO_TIPO, nomeItem, type ItemEstoque } from '../lib/estoque'
-import { emAndamento, rotuloTipoLote, rotuloEtapa, type Lote, type TipoLote } from '../lib/lotes'
+import { emAndamento, rotuloTipoLote, rotuloEtapa, gerarCodigoLote, type Lote, type TipoLote } from '../lib/lotes'
+
+const unidadeItem = (it: ItemEstoque) => ITENS_ESTOQUE.find((i) => i.id === it)?.unidade ?? 'kg'
 
 const fmt = (n: number, dec = 1) =>
   (isFinite(n) ? n : 0).toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec })
@@ -104,14 +106,19 @@ function LoteItem({ l }: { l: Lote }) {
 function AbaLotes() {
   const { config } = useConfig()
   const { lotes, saldos, novoLote } = useDados()
+  const pesoPadrao = (t: TipoLote) => (t === 'spawn' ? config.pesoBolsaSpawnKg : config.pesoBolsaSubstratoKg)
   const [tipo, setTipo] = useState<TipoLote>('producao')
   const [valor, setValor] = useState('100')
+  const [pesoBolsa, setPesoBolsa] = useState(pesoPadrao('producao'))
   const [ocupado, setOcupado] = useState(false)
+
+  const trocarTipo = (t: TipoLote) => { setTipo(t); setPesoBolsa(pesoPadrao(t)) }
 
   const emBolsas = tipo !== 'composto'
   const n = Number(valor) || 0
-  const pesoBolsa = tipo === 'spawn' ? config.pesoBolsaSpawnKg : config.pesoBolsaSubstratoKg
-  const kg = emBolsas ? n * pesoBolsa : n
+  const kg = emBolsas ? n * (pesoBolsa || 0) : n
+  const bolsas = emBolsas ? Math.round(n) : null
+  const proximoCodigo = gerarCodigoLote(tipo, lotes)
 
   let previa = ''
   let insuf = false
@@ -119,9 +126,9 @@ function AbaLotes() {
     previa = `Produz ${fmt(kg, 0)} kg de substrato quando ficar pronto. Sem consumo de estoque agora.`
   } else if (tipo === 'spawn') {
     const sorgo = kg * config.sorgoSecoPorSpawn
-    const cl = kg * (config.clNoSorgoPct / 100)
-    insuf = sorgo > saldos.sorgo_seco || cl > saldos.cl_f2
-    previa = `Consome ${fmt(sorgo)} kg de sorgo seco e ${fmt(cl, 2)} kg de CL F2 · rende ${fmt(kg, 0)} kg de spawn.`
+    const clMl = kg * (config.clNoSorgoPct / 100) * 1000
+    insuf = sorgo > saldos.sorgo_seco || clMl > saldos.cl_f2
+    previa = `Consome ${fmt(sorgo)} kg de sorgo seco e ${fmt(clMl, 0)} mL de CL F2 · rende ${fmt(kg, 0)} kg de spawn.`
   } else {
     const spawn = kg * (config.spawnNoSubstratoPct / 100)
     insuf = kg > saldos.substrato || spawn > saldos.spawn
@@ -130,7 +137,7 @@ function AbaLotes() {
 
   const criar = async () => {
     if (kg <= 0) return
-    setOcupado(true); const erro = await novoLote(tipo, kg); setOcupado(false)
+    setOcupado(true); const erro = await novoLote(tipo, kg, bolsas); setOcupado(false)
     if (erro) alert(erro)
   }
 
@@ -144,18 +151,32 @@ function AbaLotes() {
         <div className="section-sub">Criar um lote gera automaticamente a baixa de estoque correspondente.</div>
 
         <div className="seg" style={{ marginBottom: 16 }}>
-          <button className={tipo === 'composto' ? 'on' : ''} onClick={() => setTipo('composto')}>Composto</button>
-          <button className={tipo === 'spawn' ? 'on' : ''} onClick={() => setTipo('spawn')}>Spawn</button>
-          <button className={tipo === 'producao' ? 'on' : ''} onClick={() => setTipo('producao')}>Produção</button>
+          <button className={tipo === 'composto' ? 'on' : ''} onClick={() => trocarTipo('composto')}>Composto</button>
+          <button className={tipo === 'spawn' ? 'on' : ''} onClick={() => trocarTipo('spawn')}>Spawn</button>
+          <button className={tipo === 'producao' ? 'on' : ''} onClick={() => trocarTipo('producao')}>Produção</button>
         </div>
 
-        <div className="num-field" style={{ maxWidth: 220 }}>
-          <label>Quantidade</label>
-          <div className="num-wrap">
-            <input type="number" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} />
-            <span className="unit">{emBolsas ? 'bolsas' : 'kg'}</span>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 6 }}>
+          <div className="num-field" style={{ flex: 1, minWidth: 150 }}>
+            <label>Quantidade</label>
+            <div className="num-wrap">
+              <input type="number" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} />
+              <span className="unit">{emBolsas ? 'bolsas' : 'kg'}</span>
+            </div>
           </div>
+          {emBolsas && (
+            <div className="num-field" style={{ flex: 1, minWidth: 150 }}>
+              <label>Peso por bolsa</label>
+              <div className="num-wrap">
+                <input type="number" inputMode="decimal" step={0.5} value={pesoBolsa}
+                  onChange={(e) => setPesoBolsa(Number(e.target.value))} />
+                <span className="unit">kg</span>
+              </div>
+            </div>
+          )}
         </div>
+
+        <div className="codigo-lote">Código do lote: <b>{proximoCodigo}</b>{emBolsas ? ` · total ${fmt(kg, 0)} kg` : ''}</div>
 
         <div className="preview-box">{previa}</div>
         {insuf && <div className="aviso">Estoque atual não cobre esse consumo. Você pode registrar entrada no Estoque antes.</div>}
@@ -257,7 +278,7 @@ function AbaEstoque() {
             <label>Quantidade</label>
             <div className="num-wrap">
               <input type="number" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0" />
-              <span className="unit">kg</span>
+              <span className="unit">{unidadeItem(item)}</span>
             </div>
           </div>
         </div>
@@ -284,7 +305,7 @@ function AbaEstoque() {
                     {m.cancelado_em ? ' · cancelada' : ''}
                   </div>
                 </div>
-                <span className={`mov-qty ${pos ? 'pos' : 'neg'}`}>{pos ? '+' : ''}{fmt(Number(m.quantidade))} kg</span>
+                <span className={`mov-qty ${pos ? 'pos' : 'neg'}`}>{pos ? '+' : ''}{fmt(Number(m.quantidade))} {unidadeItem(m.item)}</span>
                 {!m.cancelado_em && manual && (
                   <button className="mov-cancel-btn"
                     onClick={() => { if (confirm('Cancelar esta movimentação?')) cancelarMov(m.id) }}>

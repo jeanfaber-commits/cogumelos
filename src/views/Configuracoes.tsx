@@ -34,9 +34,7 @@ function Num({
 
 export default function Configuracoes() {
   const ctx = useConfig() as ReturnType<typeof useConfig> & { teto: ResultadoTeto }
-  const { config, atualizarIngrediente, salvar, restaurarPadrao, estado, mensagem, persistencia, teto } = ctx
-
-  const somaMS = config.ingredientesComposto.reduce((s, i) => s + i.materiaSecaPct, 0)
+  const { config, salvar, restaurarPadrao, estado, mensagem, persistencia, teto } = ctx
 
   const barra = (pct: number, bind: boolean) => (
     <div className="limit-bar">
@@ -142,40 +140,6 @@ export default function Configuracoes() {
           <Num label="Umidade alvo do substrato" chave="umidadeAlvoSubstratoPct" unit="%" />
           <Num label="Eficiência biológica alvo" chave="beAlvoPct" unit="%" />
         </div>
-      </div>
-
-      {/* Receita do composto */}
-      <div className="card">
-        <div className="section-title">Receita do composto</div>
-        <div className="section-sub">Proporção sobre a matéria seca e umidade de cada ingrediente. Tudo editável.</div>
-        <div className="tbl-scroll">
-          <table className="tbl">
-            <thead>
-              <tr><th>Ingrediente</th><th className="r">% matéria seca</th><th className="r">Umidade %</th></tr>
-            </thead>
-            <tbody>
-              {config.ingredientesComposto.map((ing, i) => (
-                <tr key={i}>
-                  <td>{ing.nome}</td>
-                  <td className="r">
-                    <input className="in-cell" type="number" step={0.5} value={ing.materiaSecaPct}
-                      onChange={(e) => atualizarIngrediente(i, { materiaSecaPct: Number(e.target.value) })} />
-                  </td>
-                  <td className="r">
-                    <input className="in-cell" type="number" step={1} value={ing.umidadePct}
-                      onChange={(e) => atualizarIngrediente(i, { umidadePct: Number(e.target.value) })} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr><td>Total</td><td className="r">{fmt(somaMS, 1)}%</td><td className="r">—</td></tr>
-            </tfoot>
-          </table>
-        </div>
-        {Math.abs(somaMS - 100) > 0.1 && (
-          <div className="aviso">As proporções somam {fmt(somaMS, 1)}%. O ideal é fechar em 100%.</div>
-        )}
       </div>
 
       {/* Salvar */}

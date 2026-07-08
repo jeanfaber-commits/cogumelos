@@ -180,11 +180,11 @@ export function calcularComposto(c: Config, alvoUmidoKg: number): ResultadoCompo
 }
 
 // ---- Calculadora do spawn ----
-export type ResultadoSpawn = { sorgoSecoKg: number; clF2Kg: number; bolsas: number }
+export type ResultadoSpawn = { sorgoSecoKg: number; clF2ml: number; bolsas: number }
 export function calcularSpawn(c: Config, alvoSpawnKg: number): ResultadoSpawn {
   return {
     sorgoSecoKg: alvoSpawnKg * c.sorgoSecoPorSpawn,
-    clF2Kg: alvoSpawnKg * (c.clNoSorgoPct / 100),
+    clF2ml: alvoSpawnKg * (c.clNoSorgoPct / 100) * 1000, // mL (densidade 1 L = 1 kg)
     bolsas: c.pesoBolsaSpawnKg > 0 ? alvoSpawnKg / c.pesoBolsaSpawnKg : 0,
   }
 }

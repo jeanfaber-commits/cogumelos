@@ -3,7 +3,7 @@ import { supabase } from './supabase'
 export type ItemEstoque = 'cl_f2' | 'sorgo_seco' | 'spawn' | 'substrato'
 
 export const ITENS_ESTOQUE: { id: ItemEstoque; nome: string; unidade: string }[] = [
-  { id: 'cl_f2', nome: 'Cultura líquida (CL F2)', unidade: 'kg' },
+  { id: 'cl_f2', nome: 'Cultura líquida (CL F2)', unidade: 'mL' },
   { id: 'sorgo_seco', nome: 'Sorgo seco', unidade: 'kg' },
   { id: 'spawn', nome: 'Spawn de sorgo', unidade: 'kg' },
   { id: 'substrato', nome: 'Composto pronto', unidade: 'kg' },

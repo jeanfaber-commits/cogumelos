@@ -10,7 +10,7 @@ import {
   listarLotes, ocupacaoIncubacaoKg, ocupacaoConteinerKg, bolsasFrutificando,
   criarLoteComposto, criarLoteSpawn, criarLoteProducao,
   marcarPronto, moverParaConteiner, encerrarLote, cancelarLote,
-  registrarContaminacao, sanidadeAgregada,
+  registrarContaminacao, sanidadeAgregada, gerarCodigoLote,
   type Lote, type TipoLote,
 } from '../lib/lotes'
 import {
@@ -32,7 +32,7 @@ type DadosCtx = {
   recarregar: () => Promise<void>
   novaMovimentacao: (item: ItemEstoque, quantidade: number, tipo: TipoMov, obs?: string) => Promise<string | null>
   cancelarMov: (id: number) => Promise<string | null>
-  novoLote: (tipo: TipoLote, kg: number) => Promise<string | null>
+  novoLote: (tipo: TipoLote, kg: number, bolsas: number | null) => Promise<string | null>
   loteMarcarPronto: (l: Lote) => Promise<string | null>
   loteMoverConteiner: (l: Lote, conteiner: number) => Promise<string | null>
   loteEncerrar: (l: Lote) => Promise<string | null>
@@ -82,9 +82,13 @@ export function DadosProvider({ children }: { children: ReactNode }) {
     novaMovimentacao: (item, quantidade, tipo, obs) =>
       comReload(registrarMovimentacao({ item, quantidade, tipo, observacao: obs }, user?.id)),
     cancelarMov: (id) => comReload(cancelarMovimentacao(id, user?.id)),
-    novoLote: (tipo, kg) => {
-      const fn = tipo === 'composto' ? criarLoteComposto : tipo === 'spawn' ? criarLoteSpawn : criarLoteProducao
-      return comReload(fn(config, kg, user?.id))
+    novoLote: (tipo, kg, bolsas) => {
+      const codigo = gerarCodigoLote(tipo, lotes)
+      const p =
+        tipo === 'composto' ? criarLoteComposto(config, kg, codigo, user?.id)
+        : tipo === 'spawn' ? criarLoteSpawn(config, kg, bolsas, codigo, user?.id)
+        : criarLoteProducao(config, kg, bolsas, codigo, user?.id)
+      return comReload(p)
     },
     loteMarcarPronto: (l) => comReload(marcarPronto(l, user?.id)),
     loteMoverConteiner: (l, conteiner) => comReload(moverParaConteiner(l, conteiner, config, user?.id)),

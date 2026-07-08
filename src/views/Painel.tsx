@@ -3,14 +3,11 @@ import { useConfig } from '../context/ConfigContext'
 import { useDados } from '../context/DadosContext'
 import { producaoNoPeriodo } from '../lib/colheita'
 import Assistente from '../components/Assistente'
+import { useNav } from '../context/NavContext'
 import type { ResultadoTeto } from '../lib/calculos'
 
 const fmt = (n: number, dec = 0) =>
   n.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec })
-
-const NOME_GARGALO: Record<string, string> = {
-  incubacao: 'sala de incubação', pasteurizacao: 'pasteurização', conteiner: 'contêiner',
-}
 
 function Metric({ label, value, unit, foot }: { label: string; value?: string; unit?: string; foot: string }) {
   const vazio = value == null
@@ -28,6 +25,7 @@ function Metric({ label, value, unit, foot }: { label: string; value?: string; u
 export default function Painel() {
   const ctx = useConfig() as ReturnType<typeof useConfig> & { teto: ResultadoTeto }
   const { config, teto } = ctx
+  const { irPara } = useNav()
   const { ocupacaoConteinerKg, ocupacaoIncubacaoKg, bolsasFrutificando, colheitas, eficienciaBiologica, sanidade } = useDados()
   const producao30 = producaoNoPeriodo(colheitas, new Date(Date.now() - 30 * 86400000))
 
@@ -43,36 +41,41 @@ export default function Painel() {
         <p className="page-desc">Estado atual da produção e indicadores.</p>
       </div>
 
-      {/* Ocupação do contêiner vs. teto */}
-      <div className="card gauge-card" style={{ marginBottom: 14 }}>
+      {/* Ocupação do contêiner vs. teto — clicável */}
+      <div className="card gauge-card clicavel" style={{ marginBottom: 14 }} role="button" tabIndex={0}
+        onClick={() => irPara('conteinerDetalhe')}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') irPara('conteinerDetalhe') }}>
         <Gauge value={pctConteiner} ceiling={Math.round(teto.tetoPct)} />
         <div className="gauge-legend">
+          <div className="gauge-titulo">CONTÊINER</div>
           <div className="legend-row">
-            <span className="legend-key">Ocupação do contêiner</span>
+            <span className="legend-key">Ocupação</span>
             <span className="legend-val tnum">{fmt(ocupacaoConteinerKg)} kg</span>
           </div>
           <div className="legend-row">
             <span className="legend-key">Teto sustentável</span>
             <span className="legend-val tnum">{fmt(teto.tetoPct)}%</span>
           </div>
-          <div className="empty-note" style={{ marginTop: 4 }}>
-            Teto limitado hoje pela <b>{NOME_GARGALO[teto.gargalo]}</b>. Capacidade total: {fmt(capConteiner)} kg.
-          </div>
+          <div className="ver-detalhes">Toque para ver os lotes ›</div>
         </div>
       </div>
 
-      {/* Ocupação da incubação */}
-      <div className="card gauge-card" style={{ marginBottom: 14 }}>
+      {/* Ocupação da incubação — clicável */}
+      <div className="card gauge-card clicavel" style={{ marginBottom: 14 }} role="button" tabIndex={0}
+        onClick={() => irPara('incubacaoDetalhe')}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') irPara('incubacaoDetalhe') }}>
         <Gauge value={pctIncubacao} ceiling={100} />
         <div className="gauge-legend">
+          <div className="gauge-titulo">SALA DE INCUBAÇÃO</div>
           <div className="legend-row">
-            <span className="legend-key">Ocupação da incubação</span>
+            <span className="legend-key">Ocupação</span>
             <span className="legend-val tnum">{fmt(ocupacaoIncubacaoKg)} kg</span>
           </div>
           <div className="legend-row">
             <span className="legend-key">Capacidade</span>
             <span className="legend-val tnum">{fmt(capIncubacao)} kg</span>
           </div>
+          <div className="ver-detalhes">Toque para ver os lotes ›</div>
         </div>
       </div>
 

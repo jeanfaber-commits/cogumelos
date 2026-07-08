@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useConfig } from '../context/ConfigContext'
 import { useDados } from '../context/DadosContext'
-import BarChart from './BarChart'
+import LineChart from './LineChart'
 import { baixarPng, baixarPdf } from '../lib/exportar'
 import { capacidadeNecessaria, tetoSustentavel } from '../lib/calculos'
 import { diagnostico, planoInicio, serieProjecao, diasSustentandoTeto } from '../lib/assistente'
@@ -105,7 +105,7 @@ export default function Assistente() {
         <div className="section-title" style={{ marginBottom: 2 }}>Projeção do contêiner</div>
         <div className="section-sub">Ocupação prevista (kg) com o pipeline atual, sem novos lotes. A linha é o teto.</div>
         <div ref={projRef}>
-          <BarChart pontos={proj} unidade="kg" referencia={{ valor: d.tetoKg, label: `teto ${fmt(d.tetoKg)} kg` }} />
+          <LineChart pontos={proj} unidade="kg" referencia={{ valor: d.tetoKg, label: `teto ${fmt(d.tetoKg)} kg` }} />
         </div>
         <div className="export-bar">
           <span>Exportar:</span>
