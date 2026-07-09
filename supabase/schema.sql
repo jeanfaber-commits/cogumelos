@@ -175,6 +175,45 @@ alter table lote add column if not exists encerrado_em     timestamptz;
 -- contaminação à formulação que foi realmente usada.
 alter table lote add column if not exists receita jsonb;
 
+-- --------------------------------------- BOLSAS: SALDO x BASE HISTÓRICA -----
+-- lote.bolsas passa a ser o SALDO (bolsas que ainda existem). Contaminação e
+-- descarte abatem o saldo na hora. Para os indicadores (sanidade, % de
+-- contaminação) é preciso saber quantas bolsas o lote teve de início, então
+-- isso vira coluna própria — sobrevive inclusive à divisão de lotes.
+alter table lote add column if not exists bolsas_descartadas int not null default 0;
+alter table lote add column if not exists bolsas_iniciais    int;
+
+-- Preenche a base histórica dos lotes já existentes (uma vez só).
+update lote
+   set bolsas_iniciais = coalesce(bolsas, 0) + coalesce(bolsas_contaminadas, 0)
+ where bolsas_iniciais is null and bolsas is not null;
+
+-- ------------------------------------------- DESCARTE DE BOLSAS -------------
+-- Bolsas dadas baixa sem contaminação (ex.: colonização ruim). Evento separado
+-- da contaminação: não conta contra a sanidade, mas reduz o volume do lote.
+create table if not exists descarte (
+  id           bigint generated always as identity primary key,
+  lote_id      bigint not null,
+  quantidade   int not null check (quantidade > 0),
+  etapa        text not null check (etapa in ('spawn','colonizacao','frutificacao')),
+  motivo       text not null check (motivo in ('ma_colonizacao','crescimento_lento','dano_fisico','outro')),
+  observacao   text,
+  criado_em    timestamptz not null default now(),
+  criado_por   uuid,
+  cancelado_em timestamptz,
+  cancelado_por uuid
+);
+create index if not exists idx_descarte_lote on descarte (lote_id);
+create index if not exists idx_descarte_data on descarte (criado_em);
+
+alter table descarte enable row level security;
+drop policy if exists "descarte_ler" on descarte;
+create policy "descarte_ler" on descarte for select to authenticated using (true);
+drop policy if exists "descarte_inserir" on descarte;
+create policy "descarte_inserir" on descarte for insert to authenticated with check (true);
+drop policy if exists "descarte_atualizar" on descarte;
+create policy "descarte_atualizar" on descarte for update to authenticated using (true) with check (true);
+
 -- ------------------------------------ EVENTOS DE CONTAMINAÇÃO (CAUSA-RAIZ) --
 -- Cada registro de contaminação vira um evento com etapa e causa provável,
 -- para análise de Pareto e correlação. O total por lote continua em

@@ -3,8 +3,9 @@ import { useConfig } from '../context/ConfigContext'
 import { useDados } from '../context/DadosContext'
 import { supabaseConfigured } from '../lib/supabase'
 import { ITENS_ESTOQUE, ROTULO_TIPO, nomeItem, type ItemEstoque } from '../lib/estoque'
-import { emAndamento, rotuloTipoLote, rotuloEtapa, gerarCodigoLote, type Lote, type TipoLote } from '../lib/lotes'
+import { emAndamento, aceitaPerda, rotuloTipoLote, rotuloEtapa, gerarCodigoLote, type Lote, type TipoLote } from '../lib/lotes'
 import { CAUSAS, rotuloCausa, type CausaContaminacao } from '../lib/contaminacao'
+import { MOTIVOS, rotuloMotivo, type MotivoDescarte } from '../lib/descarte'
 
 const unidadeItem = (it: ItemEstoque) => ITENS_ESTOQUE.find((i) => i.id === it)?.unidade ?? 'kg'
 const hojeISO = () => { const d = new Date(); const p = (x: number) => String(x).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` }
@@ -23,12 +24,15 @@ function prazo(l: Lote): { texto: string; tom: 'ok' | 'pronto' } | null {
 // item de lote
 function LoteItem({ l }: { l: Lote }) {
   const { config } = useConfig()
-  const { loteMarcarPronto, loteMoverConteiner, loteEncerrar, loteCancelar, loteContaminacao } = useDados()
+  const { loteMarcarPronto, loteMoverConteiner, loteEncerrar, loteCancelar, loteContaminacao, loteDescarte } = useDados()
   const [movendo, setMovendo] = useState(false)
   const [bolsasMover, setBolsasMover] = useState('')
   const [contaminando, setContaminando] = useState(false)
   const [qtdCont, setQtdCont] = useState('')
   const [causaCont, setCausaCont] = useState<CausaContaminacao>('desconhecida')
+  const [descartando, setDescartando] = useState(false)
+  const [qtdDesc, setQtdDesc] = useState('')
+  const [motivoDesc, setMotivoDesc] = useState<MotivoDescarte>('ma_colonizacao')
   const [ocupado, setOcupado] = useState(false)
   const p = prazo(l)
 
@@ -48,8 +52,15 @@ function LoteItem({ l }: { l: Lote }) {
     setContaminando(false); setQtdCont('')
     if (nb > 0) await agir(() => loteContaminacao(l, nb, causaCont))
   }
+  const confirmarDesc = async () => {
+    const nb = Math.round(Number(qtdDesc) || 0)
+    setDescartando(false); setQtdDesc('')
+    if (nb > 0) await agir(() => loteDescarte(l, nb, motivoDesc))
+  }
 
   const contaminadas = Number(l.bolsas_contaminadas ?? 0)
+  const descartadas = Number(l.bolsas_descartadas ?? 0)
+  const podePerda = aceitaPerda(l)
 
   return (
     <div className="lote-item">
@@ -65,6 +76,7 @@ function LoteItem({ l }: { l: Lote }) {
         {l.codigo} · {rotuloEtapa(l.etapa)}
         {l.conteiner ? ` · contêiner ${l.conteiner}` : ''} · início {fmtData(l.iniciado_em)}
         {contaminadas > 0 ? ` · ${contaminadas} contaminadas` : ''}
+        {descartadas > 0 ? ` · ${descartadas} descartadas` : ''}
       </div>
 
       {movendo ? (
@@ -97,6 +109,18 @@ function LoteItem({ l }: { l: Lote }) {
           <button className="btn" onClick={confirmarCont}>Registrar</button>
           <button className="btn btn-ghost" onClick={() => setContaminando(false)}>cancelar</button>
         </div>
+      ) : descartando ? (
+        <div className="picker">
+          <span>Descarte:</span>
+          <input className="in-cell" style={{ width: 56 }} type="number" inputMode="numeric" placeholder="bolsas"
+            value={qtdDesc} onChange={(e) => setQtdDesc(e.target.value)} />
+          <select className="in-cell sel" value={motivoDesc} onChange={(e) => setMotivoDesc(e.target.value as MotivoDescarte)}>
+            {MOTIVOS.map((m) => <option key={m} value={m}>{rotuloMotivo(m)}</option>)}
+          </select>
+          <button className="btn" onClick={confirmarDesc}>Registrar</button>
+          <button className="btn btn-ghost" onClick={() => setDescartando(false)}>cancelar</button>
+          <small className="picker-hint">saldo: {l.bolsas} bolsas · não conta como contaminação</small>
+        </div>
       ) : (
         <div className="lote-actions">
           {(l.tipo === 'composto' || l.tipo === 'spawn') && l.etapa !== 'pronto' && (
@@ -112,8 +136,11 @@ function LoteItem({ l }: { l: Lote }) {
           {l.tipo === 'producao' && l.etapa === 'frutificando' && (
             <button className="btn" disabled={ocupado} onClick={() => agir(() => loteEncerrar(l))}>Encerrar</button>
           )}
-          {l.tipo === 'producao' && (l.etapa === 'colonizando' || l.etapa === 'frutificando') && (
-            <button className="btn btn-ghost" disabled={ocupado} onClick={() => setContaminando(true)}>Contaminação</button>
+          {podePerda && (
+            <>
+              <button className="btn btn-ghost" disabled={ocupado} onClick={() => setContaminando(true)}>Contaminação</button>
+              <button className="btn btn-ghost" disabled={ocupado} onClick={() => setDescartando(true)}>Descarte</button>
+            </>
           )}
           <button className="btn btn-ghost" disabled={ocupado}
             onClick={() => { if (confirm('Cancelar este lote? O consumo de estoque será estornado.')) agir(() => loteCancelar(l)) }}>
@@ -170,6 +197,14 @@ function AbaLotes() {
   const ativos = lotes.filter(emAndamento)
   const concluidos = lotes.filter((l) => !emAndamento(l))
 
+  // Lotes em andamento separados por onde estão no processo.
+  const grupos = [
+    { id: 'composto', titulo: 'Composto', itens: ativos.filter((l) => l.tipo === 'composto') },
+    { id: 'spawn', titulo: 'Incubação · Spawn', itens: ativos.filter((l) => l.tipo === 'spawn' && l.etapa === 'incubando') },
+    { id: 'substrato', titulo: 'Incubação · Substrato', itens: ativos.filter((l) => l.tipo === 'producao' && l.etapa === 'colonizando') },
+    { id: 'frutificacao', titulo: 'Frutificação', itens: ativos.filter((l) => l.tipo === 'producao' && l.etapa === 'frutificando') },
+  ].filter((g) => g.itens.length > 0)
+
   return (
     <>
       <div className="card">
@@ -220,11 +255,24 @@ function AbaLotes() {
         </div>
       </div>
 
-      <div className="group-label">Em andamento ({ativos.length})</div>
       {ativos.length === 0 ? (
-        <div className="empty-note">Nenhum lote em andamento. Crie o primeiro acima.</div>
+        <>
+          <div className="group-label">Em andamento (0)</div>
+          <div className="empty-note">Nenhum lote em andamento. Crie o primeiro acima.</div>
+        </>
       ) : (
-        ativos.map((l) => <LoteItem key={l.id} l={l} />)
+        grupos.map((g) => (
+          <div key={g.id}>
+            <div className="group-label">
+              {g.titulo} ({g.itens.length})
+              <span className="group-sub">
+                {fmt(g.itens.reduce((t, l) => t + Number(l.quantidade_kg), 0), 0)} kg
+                {g.id !== 'composto' && ` · ${g.itens.reduce((t, l) => t + Number(l.bolsas ?? 0), 0)} bolsas`}
+              </span>
+            </div>
+            {g.itens.map((l) => <LoteItem key={l.id} l={l} />)}
+          </div>
+        ))
       )}
 
       {concluidos.length > 0 && (

@@ -3,6 +3,7 @@ import { supabaseConfigured } from '../lib/supabase'
 import { tetoSustentavel, type Config, type ResultadoTeto, type Ingrediente } from '../lib/calculos'
 import { calibrarTempos, aplicarTempos, type TemposReais } from '../lib/calibracao'
 import { listarContaminacoes, type Contaminacao, type CausaContaminacao } from '../lib/contaminacao'
+import { listarDescartes, type Descarte, type MotivoDescarte } from '../lib/descarte'
 import { useAuth } from './AuthContext'
 import { useConfig } from './ConfigContext'
 import {
@@ -13,7 +14,7 @@ import {
   listarLotes, ocupacaoIncubacaoKg, ocupacaoConteinerKg, bolsasFrutificando,
   criarLoteComposto, criarLoteSpawn, criarLoteProducao,
   marcarPronto, moverParaConteiner, encerrarLote, cancelarLote,
-  registrarContaminacao, sanidadeAgregada, gerarCodigoLote, codigoParcial,
+  registrarContaminacao, registrarDescarte, sanidadeAgregada, gerarCodigoLote, codigoParcial,
   type Lote, type TipoLote,
 } from '../lib/lotes'
 import {
@@ -36,6 +37,7 @@ type DadosCtx = {
   configEfetiva: Config
   teto: ResultadoTeto
   contaminacoes: Contaminacao[]
+  descartes: Descarte[]
   recarregar: () => Promise<void>
   novaMovimentacao: (item: ItemEstoque, quantidade: number, tipo: TipoMov, obs?: string) => Promise<string | null>
   cancelarMov: (id: number) => Promise<string | null>
@@ -45,6 +47,7 @@ type DadosCtx = {
   loteEncerrar: (l: Lote) => Promise<string | null>
   loteCancelar: (l: Lote) => Promise<string | null>
   loteContaminacao: (l: Lote, bolsas: number, causa: CausaContaminacao) => Promise<string | null>
+  loteDescarte: (l: Lote, bolsas: number, motivo: MotivoDescarte) => Promise<string | null>
   novaColheita: (conteiner: number, peso: number, turno: Turno | null, obs?: string) => Promise<string | null>
   cancelarColh: (id: number) => Promise<string | null>
 }
@@ -59,12 +62,13 @@ export function DadosProvider({ children }: { children: ReactNode }) {
   const [lotes, setLotes] = useState<Lote[]>([])
   const [colheitas, setColheitas] = useState<Colheita[]>([])
   const [contaminacoes, setContaminacoes] = useState<Contaminacao[]>([])
+  const [descartes, setDescartes] = useState<Descarte[]>([])
   const [carregando, setCarregando] = useState(true)
 
   const recarregar = useCallback(async () => {
     if (!supabaseConfigured) { setCarregando(false); return }
-    const [m, l, c, ct] = await Promise.all([listarMovimentacoes(), listarLotes(), listarColheitas(), listarContaminacoes()])
-    setMovs(m); setLotes(l); setColheitas(c); setContaminacoes(ct); setCarregando(false)
+    const [m, l, c, ct, ds] = await Promise.all([listarMovimentacoes(), listarLotes(), listarColheitas(), listarContaminacoes(), listarDescartes()])
+    setMovs(m); setLotes(l); setColheitas(c); setContaminacoes(ct); setDescartes(ds); setCarregando(false)
   }, [])
 
   useEffect(() => { recarregar() }, [recarregar])
@@ -114,7 +118,7 @@ export function DadosProvider({ children }: { children: ReactNode }) {
     carregando, movimentacoes, lotes, colheitas, saldos,
     ocupacaoIncubacaoKg: ocInc, ocupacaoConteinerKg: ocCont, bolsasFrutificando: bolsas,
     eficienciaBiologica: be, sanidade: san,
-    temposReais, configEfetiva, teto, contaminacoes,
+    temposReais, configEfetiva, teto, contaminacoes, descartes,
     recarregar,
     novaMovimentacao: (item, quantidade, tipo, obs) =>
       comReload(registrarMovimentacao({ item, quantidade, tipo, observacao: obs }, user?.id)),
@@ -137,6 +141,7 @@ export function DadosProvider({ children }: { children: ReactNode }) {
     loteEncerrar: (l) => comReload(encerrarLote(l, user?.id)),
     loteCancelar: (l) => comReload(cancelarLote(l, user?.id)),
     loteContaminacao: (l, bolsas, causa) => comReload(registrarContaminacao(l, bolsas, causa, user?.id)),
+    loteDescarte: (l, bolsas, motivo) => comReload(registrarDescarte(l, bolsas, motivo, user?.id)),
     novaColheita: (conteiner, peso, turno, obs) =>
       comReload(registrarColheita({ conteiner, peso_kg: peso, turno, observacao: obs }, user?.id)),
     cancelarColh: (id) => comReload(cancelarColheita(id, user?.id)),

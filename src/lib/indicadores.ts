@@ -155,12 +155,14 @@ export function producaoPorConteiner(colheitas: Colheita[], op: PeriodoOpcao): P
 // ---- Contaminação por lote (cada lote com bolsas, em ordem de início) ----
 // Binar por dia produziria muitos zeros (lotes não começam todo dia), então
 // mostramos um ponto por lote: a % de bolsas contaminadas daquele lote.
+import { bolsasIniciais } from './lotes'
 import type { Lote, TipoLote } from './lotes'
 
 export type ContamLote = { codigo: string; tipo: TipoLote; label: string; pct: number; contaminadas: number; bolsas: number }
 export type ResumoContam = {
   pontos: Ponto[]; itens: ContamLote[]
   mediaPct: number; totalContaminadas: number; totalBolsas: number
+  totalDescartadas: number; descartePct: number
   spawnPct: number | null; producaoPct: number | null
 }
 
@@ -168,14 +170,15 @@ export function contaminacaoPorLote(lotes: Lote[], op: PeriodoOpcao): ResumoCont
   const desde = desdeDoPeriodo(op)
   const t0 = desde ? desde.getTime() : -Infinity
   const relevantes = lotes
-    .filter((l) => !l.cancelado_em && (l.bolsas ?? 0) > 0 && new Date(l.iniciado_em).getTime() >= t0)
+    .filter((l) => !l.cancelado_em && l.tipo !== 'composto' && bolsasIniciais(l) > 0 && new Date(l.iniciado_em).getTime() >= t0)
     .sort((a, b) => new Date(a.iniciado_em).getTime() - new Date(b.iniciado_em).getTime())
 
   const itens: ContamLote[] = []
-  let totalC = 0, totalB = 0, spawnC = 0, spawnB = 0, prodC = 0, prodB = 0
+  let totalC = 0, totalB = 0, spawnC = 0, spawnB = 0, prodC = 0, prodB = 0, totalD = 0
   for (const l of relevantes) {
-    const b = Number(l.bolsas)
+    const b = bolsasIniciais(l)   // base histórica: o saldo já vem abatido das perdas
     const c = Number(l.bolsas_contaminadas ?? 0)
+    totalD += Number(l.bolsas_descartadas ?? 0)
     itens.push({ codigo: l.codigo, tipo: l.tipo, label: ddmm(new Date(l.iniciado_em)), pct: b > 0 ? (c / b) * 100 : 0, contaminadas: c, bolsas: b })
     totalC += c; totalB += b
     if (l.tipo === 'spawn') { spawnC += c; spawnB += b }
@@ -186,6 +189,7 @@ export function contaminacaoPorLote(lotes: Lote[], op: PeriodoOpcao): ResumoCont
     itens,
     mediaPct: totalB > 0 ? (totalC / totalB) * 100 : 0,
     totalContaminadas: totalC, totalBolsas: totalB,
+    totalDescartadas: totalD, descartePct: totalB > 0 ? (totalD / totalB) * 100 : 0,
     spawnPct: spawnB > 0 ? (spawnC / spawnB) * 100 : null,
     producaoPct: prodB > 0 ? (prodC / prodB) * 100 : null,
   }
@@ -209,10 +213,10 @@ export function spcContaminacao(lotes: Lote[], op: PeriodoOpcao): SPCContam {
   const desde = desdeDoPeriodo(op)
   const t0 = desde ? desde.getTime() : -Infinity
   const rel = lotes
-    .filter((l) => !l.cancelado_em && l.tipo === 'producao' && (l.bolsas ?? 0) > 0 && new Date(l.iniciado_em).getTime() >= t0)
+    .filter((l) => !l.cancelado_em && l.tipo !== 'composto' && bolsasIniciais(l) > 0 && new Date(l.iniciado_em).getTime() >= t0)
     .sort((a, b) => new Date(a.iniciado_em).getTime() - new Date(b.iniciado_em).getTime())
 
-  const totalB = rel.reduce((s, l) => s + Number(l.bolsas), 0)
+  const totalB = rel.reduce((s, l) => s + bolsasIniciais(l), 0)
   const totalC = rel.reduce((s, l) => s + Number(l.bolsas_contaminadas ?? 0), 0)
   const pBar = totalB > 0 ? totalC / totalB : 0
 
@@ -220,7 +224,7 @@ export function spcContaminacao(lotes: Lote[], op: PeriodoOpcao): SPCContam {
   const ucl: Ponto[] = []
   const fora: { codigo: string; pct: number }[] = []
   for (const l of rel) {
-    const b = Number(l.bolsas)
+    const b = bolsasIniciais(l)
     const p = b > 0 ? Number(l.bolsas_contaminadas ?? 0) / b : 0
     const sigma = b > 0 ? Math.sqrt((pBar * (1 - pBar)) / b) : 0
     const lim = Math.min(1, pBar + 3 * sigma)

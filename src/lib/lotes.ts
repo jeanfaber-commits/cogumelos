@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import type { Config, Ingrediente } from './calculos'
 import type { ItemEstoque, TipoMov } from './estoque'
 import type { CausaContaminacao, EtapaContaminacao } from './contaminacao'
+import type { MotivoDescarte } from './descarte'
 
 export type TipoLote = 'composto' | 'spawn' | 'producao'
 export type EtapaLote =
@@ -15,8 +16,10 @@ export type Lote = {
   tipo: TipoLote
   etapa: EtapaLote
   quantidade_kg: number
-  bolsas: number | null
+  bolsas: number | null            // SALDO de bolsas (já abatidas contaminação e descarte)
+  bolsas_iniciais: number | null   // base histórica, para os indicadores
   bolsas_contaminadas: number
+  bolsas_descartadas: number
   conteiner: number | null
   iniciado_em: string
   etapa_desde: string
@@ -49,6 +52,24 @@ export const rotuloEtapa = (e: EtapaLote) => ROTULO_ETAPA[e]
 // Etapas que ainda ocupam recurso / estão em andamento.
 export const ETAPAS_ATIVAS: EtapaLote[] = ['preparo', 'incubando', 'colonizando', 'frutificando']
 export const emAndamento = (l: Lote) => !l.cancelado_em && ETAPAS_ATIVAS.includes(l.etapa)
+
+// Bolsas que o lote teve de início. É a base dos indicadores (% de contaminação,
+// sanidade). Lotes antigos, sem a coluna preenchida, caem na soma do saldo com
+// as perdas registradas.
+export function bolsasIniciais(l: Lote): number {
+  if (l.bolsas_iniciais != null) return Number(l.bolsas_iniciais)
+  return Number(l.bolsas ?? 0) + Number(l.bolsas_contaminadas ?? 0) + Number(l.bolsas_descartadas ?? 0)
+}
+
+// Etapa em que a perda aconteceu, deduzida da etapa atual do lote.
+export function etapaDoEvento(l: Lote): EtapaContaminacao {
+  return l.etapa === 'frutificando' ? 'frutificacao' : l.etapa === 'incubando' ? 'spawn' : 'colonizacao'
+}
+
+// Lotes que aceitam registro de perdas: precisam ter bolsas e estar em andamento.
+export const aceitaPerda = (l: Lote) =>
+  emAndamento(l) && Number(l.bolsas ?? 0) > 0 &&
+  (l.etapa === 'incubando' || l.etapa === 'colonizando' || l.etapa === 'frutificando')
 
 // ---------- Ocupação (calculada dos lotes ativos) ----------
 export function ocupacaoIncubacaoKg(lotes: Lote[], c: Config): number {
@@ -102,7 +123,7 @@ export function gerarCodigoLote(tipo: TipoLote, lotes: Lote[], dataRef?: Date): 
 export async function listarLotes(): Promise<Lote[]> {
   const { data, error } = await supabase
     .from('lote')
-    .select('id,codigo,tipo,etapa,quantidade_kg,bolsas,bolsas_contaminadas,conteiner,iniciado_em,etapa_desde,previsto_para,pronto_em,frutificacao_em,encerrado_em,receita,observacao,cancelado_em')
+    .select('id,codigo,tipo,etapa,quantidade_kg,bolsas,bolsas_iniciais,bolsas_contaminadas,bolsas_descartadas,conteiner,iniciado_em,etapa_desde,previsto_para,pronto_em,frutificacao_em,encerrado_em,receita,observacao,cancelado_em')
     .order('iniciado_em', { ascending: false })
     .limit(500)
   if (error || !data) return []
@@ -125,7 +146,7 @@ async function criarLote(
   const rec = receita ? { receita } : {}
   const { data, error } = await supabase
     .from('lote')
-    .insert({ ...dados, ...extra, ...rec, criado_por: userId ?? null })
+    .insert({ ...dados, bolsas_iniciais: dados.bolsas, ...extra, ...rec, criado_por: userId ?? null })
     .select('id')
     .single()
   if (error || !data) return error?.message ?? 'Falha ao criar o lote.'
@@ -227,9 +248,11 @@ export async function moverParaConteiner(
   const kgResta = Number(l.quantidade_kg) - kgMover
   const bolsasResta = total - mover
 
-  // 1) reduz o lote pai (continua colonizando; datas preservadas).
+  // 1) reduz o lote pai (continua colonizando; datas preservadas). A base
+  //    histórica também é dividida, para os indicadores não contarem em dobro.
+  const iniciaisPai = Math.max(0, bolsasIniciais(l) - mover)
   const { error: e1 } = await supabase.from('lote')
-    .update({ quantidade_kg: kgResta, bolsas: bolsasResta, criado_por: userId ?? null })
+    .update({ quantidade_kg: kgResta, bolsas: bolsasResta, bolsas_iniciais: iniciaisPai, criado_por: userId ?? null })
     .eq('id', l.id)
   if (e1) return e1.message
 
@@ -237,13 +260,16 @@ export async function moverParaConteiner(
   const { error: e2 } = await supabase.from('lote').insert({
     codigo: codigoFilho ?? `${l.codigo}-P`,
     tipo: 'producao', etapa: 'frutificando',
-    quantidade_kg: kgMover, bolsas: mover, bolsas_contaminadas: 0, conteiner,
+    quantidade_kg: kgMover, bolsas: mover, bolsas_iniciais: mover,
+    bolsas_contaminadas: 0, bolsas_descartadas: 0, conteiner,
     iniciado_em: l.iniciado_em, etapa_desde: agora, frutificacao_em: agora,
     previsto_para: emDias(c.tempoFrutificacao), receita: l.receita, criado_por: userId ?? null,
   })
   if (e2) {
     // desfaz a redução do pai para não sumir com bolsas.
-    await supabase.from('lote').update({ quantidade_kg: Number(l.quantidade_kg), bolsas: total }).eq('id', l.id)
+    await supabase.from('lote')
+      .update({ quantidade_kg: Number(l.quantidade_kg), bolsas: total, bolsas_iniciais: bolsasIniciais(l) })
+      .eq('id', l.id)
     return e2.message
   }
   return null
@@ -267,34 +293,74 @@ export async function cancelarLote(l: Lote, userId?: string): Promise<string | n
   return null
 }
 
-// Registra bolsas perdidas por contaminação: grava um evento (etapa + causa,
-// para análise de causa-raiz) e soma no total do lote (para a sanidade).
-// A etapa é inferida da etapa atual do lote.
-export async function registrarContaminacao(
-  l: Lote, bolsas: number, causa: CausaContaminacao, userId?: string,
-): Promise<string | null> {
-  const etapa: EtapaContaminacao =
-    l.etapa === 'frutificando' ? 'frutificacao' : l.etapa === 'incubando' ? 'spawn' : 'colonizacao'
-  const { error: e1 } = await supabase.from('contaminacao').insert({
-    lote_id: l.id, quantidade: bolsas, etapa, causa, criado_por: userId ?? null,
-  })
-  if (e1) return e1.message
-  const novo = Number(l.bolsas_contaminadas ?? 0) + bolsas
-  const { error } = await supabase
-    .from('lote')
-    .update({ bolsas_contaminadas: novo, criado_por: userId ?? null })
-    .eq('id', l.id)
+// Dá baixa de N bolsas no lote: reduz o saldo e o peso proporcionalmente.
+// Se zerar o saldo, o lote é encerrado (não ocupa mais recurso nenhum).
+async function baixarBolsas(l: Lote, bolsas: number, campoAcumulado: 'bolsas_contaminadas' | 'bolsas_descartadas', userId?: string): Promise<string | null> {
+  const saldo = Number(l.bolsas ?? 0)
+  const kgPorBolsa = saldo > 0 ? Number(l.quantidade_kg) / saldo : 0
+  const novoSaldo = Math.max(0, saldo - bolsas)
+  const novoKg = Math.max(0, Number(l.quantidade_kg) - bolsas * kgPorBolsa)
+  const acumulado = Number(l[campoAcumulado] ?? 0) + bolsas
+
+  const campos: Record<string, unknown> = {
+    bolsas: novoSaldo,
+    quantidade_kg: novoKg,
+    [campoAcumulado]: acumulado,
+    criado_por: userId ?? null,
+  }
+  if (novoSaldo === 0) {
+    // Sem bolsas o lote não ocupa mais recurso nenhum: encerra.
+    campos.etapa = 'encerrado'
+    campos.etapa_desde = new Date().toISOString()
+    campos.previsto_para = null
+    campos.encerrado_em = new Date().toISOString()
+  }
+  const { error } = await supabase.from('lote').update(campos).eq('id', l.id)
   return error?.message ?? null
 }
 
-// Sanidade agregada = bolsas sadias / bolsas inoculadas × 100, sobre os lotes
-// de produção que já foram inoculados (colonizando em diante).
+// Registra bolsas perdidas por contaminação: grava o evento (etapa + causa, para
+// a análise de causa-raiz), soma no total do lote (sanidade) e abate o saldo na
+// hora — o lote passa a valer só pelas bolsas que restaram.
+export async function registrarContaminacao(
+  l: Lote, bolsas: number, causa: CausaContaminacao, userId?: string,
+): Promise<string | null> {
+  const saldo = Number(l.bolsas ?? 0)
+  if (bolsas <= 0) return null
+  if (bolsas > saldo) return `O lote tem apenas ${saldo} bolsa(s).`
+
+  const { error: e1 } = await supabase.from('contaminacao').insert({
+    lote_id: l.id, quantidade: bolsas, etapa: etapaDoEvento(l), causa, criado_por: userId ?? null,
+  })
+  if (e1) return e1.message
+  return baixarBolsas(l, bolsas, 'bolsas_contaminadas', userId)
+}
+
+// Registra bolsas descartadas SEM contaminação (ex.: colonização ruim). Não
+// conta contra a sanidade, mas abate o saldo do lote da mesma forma.
+export async function registrarDescarte(
+  l: Lote, bolsas: number, motivo: MotivoDescarte, userId?: string,
+): Promise<string | null> {
+  const saldo = Number(l.bolsas ?? 0)
+  if (bolsas <= 0) return null
+  if (bolsas > saldo) return `O lote tem apenas ${saldo} bolsa(s).`
+
+  const { error: e1 } = await supabase.from('descarte').insert({
+    lote_id: l.id, quantidade: bolsas, etapa: etapaDoEvento(l), motivo, criado_por: userId ?? null,
+  })
+  if (e1) return e1.message
+  return baixarBolsas(l, bolsas, 'bolsas_descartadas', userId)
+}
+
+// Sanidade agregada = bolsas sadias / bolsas inoculadas × 100. Considera os
+// lotes de spawn (incubação) e de produção (colonização e frutificação), sobre
+// a base histórica de bolsas — o saldo já vem abatido das perdas.
 export function sanidadeAgregada(lotes: Lote[]): number | null {
-  const inoculadas: EtapaLote[] = ['colonizando', 'frutificando', 'encerrado']
   let inoc = 0, cont = 0
   for (const l of lotes) {
-    if (l.cancelado_em || l.tipo !== 'producao' || !inoculadas.includes(l.etapa)) continue
-    inoc += Number(l.bolsas ?? 0)
+    if (l.cancelado_em || l.tipo === 'composto') continue
+    if (l.etapa === 'preparo') continue
+    inoc += bolsasIniciais(l)
     cont += Number(l.bolsas_contaminadas ?? 0)
   }
   if (inoc <= 0) return null

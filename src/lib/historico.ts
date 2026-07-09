@@ -1,4 +1,5 @@
 import type { Config } from './calculos'
+import { bolsasIniciais } from './lotes'
 import type { Lote } from './lotes'
 import type { Colheita } from './colheita'
 import type { Ponto } from './indicadores'
@@ -104,19 +105,20 @@ export function serieEficienciaBiologica(colheitas: Colheita[], lotes: Lote[], c
 }
 
 // ---- Sanidade acumulada ao longo do tempo (%) ----
-// bolsas sadias / bolsas inoculadas, considerando os lotes já iniciados até
-// cada data. A contaminação é atribuída ao lote (mesma base do card por lote).
+// bolsas sadias / bolsas inoculadas, considerando os lotes já iniciados até cada
+// data. Entram os lotes de spawn (incubação) e de produção (colonização e
+// frutificação). A base é a quantidade inicial de bolsas — o saldo do lote já
+// vem abatido das perdas.
 export function serieSanidade(lotes: Lote[], dias: number): Ponto[] {
   const pts = amostras(dias)
-  const inoculadas = ['colonizando', 'frutificando', 'encerrado']
   return pts.map(({ t, label }) => {
     let inoc = 0
     let cont = 0
     for (const l of lotes) {
-      if (l.cancelado_em || l.tipo !== 'producao' || !inoculadas.includes(l.etapa)) continue
+      if (l.cancelado_em || l.tipo === 'composto' || l.etapa === 'preparo') continue
       const inicio = ms(l.iniciado_em)
       if (inicio == null || inicio > t) continue
-      inoc += Number(l.bolsas ?? 0)
+      inoc += bolsasIniciais(l)
       cont += Number(l.bolsas_contaminadas ?? 0)
     }
     return { label, valor: inoc > 0 ? ((inoc - cont) / inoc) * 100 : 0 }

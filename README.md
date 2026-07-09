@@ -86,10 +86,11 @@ seguro. Sem essa etapa, o app calcula normalmente, mas não consegue **salvar** 
 configurações.
 
 > **Atualizando de uma versão anterior?** Rode o `supabase/schema.sql` de novo.
-> Esta versão adiciona marcos de data nos lotes (`pronto_em`, `frutificacao_em`,
-> `encerrado_em`), a coluna `receita` (mistura usada no lote de composto) e a
-> tabela `contaminacao` (eventos com causa). O script é idempotente: aplica só o
-> que falta, sem apagar nada.
+> Esta versão adiciona `bolsas_iniciais` e `bolsas_descartadas` no lote e a tabela
+> `descarte`. Versões anteriores trouxeram os marcos de data (`pronto_em`,
+> `frutificacao_em`, `encerrado_em`), a coluna `receita` e a tabela `contaminacao`.
+> O script é idempotente: aplica só o que falta, sem apagar nada, e preenche
+> `bolsas_iniciais` dos lotes que já existem.
 
 ---
 
@@ -152,6 +153,23 @@ colher → acompanhar indicadores → decidir com o Assistente. Tudo com histór
 e o teto sustentável guiando as decisões.
 
 ## Novidades desta versão
+
+- **Descarte de bolsas.** Além de contaminação, dá para dar baixa em bolsas perdidas
+  **sem** contaminação (má colonização, crescimento lento, dano físico). O descarte
+  reduz o lote, mas não conta contra a sanidade.
+- **Baixa imediata no volume.** Contaminação e descarte abatem as bolsas e o peso do
+  lote na hora. Daí em diante o lote vale só pelas bolsas que restaram — inclusive na
+  hora de mandar para o contêiner, na ocupação e na projeção. As bolsas iniciais ficam
+  guardadas à parte (`bolsas_iniciais`) para servir de base aos indicadores.
+- **Perdas nos lotes de spawn.** Contaminação e descarte também podem ser registrados na
+  incubação do spawn. A contaminação do spawn entra nas estatísticas junto com a do
+  substrato (card de contaminação por lote, sanidade e carta de controle).
+- **Lotes em andamento separados por etapa:** *Composto*, *Incubação · Spawn*,
+  *Incubação · Substrato* e *Frutificação*, cada grupo com o subtotal em kg e bolsas.
+- **Lote zerado encerra sozinho.** Se todas as bolsas forem perdidas, o lote é encerrado
+  (deixa de ocupar incubação ou contêiner) e é excluído do cálculo dos tempos reais, para
+  não encurtar a mediana com um ciclo que não aconteceu.
+
 
 - **Projeção por lote acumulativa.** Na tela cheia da projeção, as linhas são empilhadas:
   cada faixa entre duas linhas é um lote e a linha mais alta é a lotação total prevista.

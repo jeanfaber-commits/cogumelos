@@ -273,7 +273,7 @@ export default function Indicadores() {
       {contam.totalBolsas > 0 && (
         <div className="card">
           <div className="section-title" style={{ marginBottom: 2 }}>Contaminação por lote</div>
-          <div className="section-sub">% de bolsas contaminadas em cada lote, em ordem de início.</div>
+          <div className="section-sub">% de bolsas contaminadas em cada lote (spawn e substrato), em ordem de início.</div>
           <div style={{ marginTop: 10 }}>
             <div ref={reg('contaminacao')}>
               <ChartFrame titulo="Contaminação por lote"><BarChart pontos={contam.pontos} unidade="%" /></ChartFrame>
@@ -301,6 +301,11 @@ export default function Indicadores() {
               </div>
               <div className="metric-foot">na colonização · alvo {config.contaminacaoColonizacaoPct}%</div>
             </div>
+            <div className="metric">
+              <div className="metric-label">Descarte</div>
+              <div className="metric-value tnum">{fmt(contam.descartePct, 1)}<span className="metric-unit">%</span></div>
+              <div className="metric-foot">{contam.totalDescartadas} bolsas · sem contaminação</div>
+            </div>
           </div>
         </div>
       )}
@@ -309,7 +314,7 @@ export default function Indicadores() {
       {spc.n >= 2 && (
         <div className="card">
           <div className="section-title" style={{ marginBottom: 2 }}>Controle estatístico (contaminação)</div>
-          <div className="section-sub">Carta p: linha central é a média; a tracejada é o limite de 3σ (varia com o tamanho do lote). Pontos acima do limite têm causa especial.</div>
+          <div className="section-sub">Carta p de todos os lotes com bolsas (spawn e substrato). A linha central é a média; a tracejada é o limite de 3σ, que varia com o tamanho do lote. Pontos acima do limite têm causa especial.</div>
           <div style={{ marginTop: 10 }}>
             <div ref={reg('spc')}>
               <ChartFrame titulo="Controle estatístico da contaminação">

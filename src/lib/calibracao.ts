@@ -1,5 +1,5 @@
 import type { Config } from './calculos'
-import type { Lote } from './lotes'
+import { bolsasIniciais, type Lote } from './lotes'
 
 const DIA = 86400000
 
@@ -26,12 +26,16 @@ const dias = (de: string, ate: string) => (new Date(ate).getTime() - new Date(de
 // - Colonização: do início até a ida ao contêiner (frutificacao_em).
 // - Frutificação: da ida ao contêiner até o encerramento (encerrado_em).
 // - Spawn: do início até ser marcado pronto (pronto_em).
+// Um lote que perdeu todas as bolsas (contaminação/descarte) é encerrado cedo.
+// Ele não representa um ciclo normal e não deve puxar a mediana para baixo.
+const perdaTotal = (l: Lote) => Number(l.bolsas ?? 0) === 0 && bolsasIniciais(l) > 0
+
 export function calibrarTempos(lotes: Lote[]): TemposReais {
   const colon: number[] = []
   const frut: number[] = []
   const spawn: number[] = []
   for (const l of lotes) {
-    if (l.cancelado_em) continue
+    if (l.cancelado_em || perdaTotal(l)) continue
     if (l.tipo === 'producao') {
       if (l.frutificacao_em) {
         const d = dias(l.iniciado_em, l.frutificacao_em)
