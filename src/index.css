@@ -320,15 +320,16 @@ input { font-family: inherit; }
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
     background: var(--surface);
     border-top: 0.5px solid var(--border);
-    padding: 8px 6px calc(8px + env(safe-area-inset-bottom));
-    justify-content: space-around;
+    padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+    justify-content: stretch;
   }
   .bottom-item {
+    flex: 1 1 0; min-width: 0;
     display: flex; flex-direction: column; align-items: center; gap: 3px;
     background: none; border: none;
     color: var(--text-muted);
     font-size: 10.5px; font-weight: 500;
-    padding: 4px 4px; min-width: 52px;
+    padding: 4px 2px;
     border-radius: var(--radius-sm);
   }
   .bottom-item.active { color: var(--accent); }
@@ -339,7 +340,7 @@ input { font-family: inherit; }
 }
 
 @media (max-width: 380px) {
-  .bottom-item { font-size: 9.5px; min-width: 46px; }
+  .bottom-item { font-size: 9.5px; }
 }
 
 /* ===================== FORMULÁRIOS / CÁLCULOS (passo 2) ===================== */
@@ -549,9 +550,13 @@ input.in-cell[type="date"] { width: auto; }
 .chart-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .chart-legend i { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
 
-/* Gráfico clicável para abrir em tela cheia */
-.chart-open { display: block; width: 100%; text-align: left; background: none; border: none; padding: 0; cursor: pointer; }
-.chart-open-hint { display: block; text-align: center; font-size: 12px; color: var(--accent); margin-top: 2px; }
+/* Link para a página da projeção por lote */
+.chart-open-hint {
+  display: block; width: 100%; text-align: center;
+  background: none; border: none; cursor: pointer;
+  font-size: 12px; color: var(--accent); margin-top: 4px; padding: 4px;
+}
+.chart-open-hint:hover { text-decoration: underline; }
 
 /* Projeção em tela cheia */
 .projecao-full { padding: 12px; }
@@ -573,3 +578,68 @@ input.in-cell[type="date"] { width: auto; }
 .calib-row small { color: var(--text-muted); }
 .calib-tag { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--text-muted); white-space: nowrap; }
 .calib-tag.on { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+
+/* ===================== GRÁFICO EM TELA CHEIA ===================== */
+.chart-frame { position: relative; }
+.chart-expand {
+  position: absolute; top: -2px; right: 0; z-index: 2;
+  display: grid; place-items: center;
+  width: 30px; height: 30px; padding: 0;
+  background: var(--surface-2); border: 0.5px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text-secondary); cursor: pointer;
+}
+.chart-expand:hover { color: var(--accent); border-color: var(--accent); }
+
+.chart-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: var(--bg);
+  display: grid; place-items: center;
+  padding: 16px;
+}
+.chart-overlay-inner { width: 100%; max-width: 1200px; }
+.chart-overlay-inner .chart-expand { display: none; }
+.chart-overlay-title { font-size: 15px; font-weight: 600; margin-bottom: 8px; text-align: center; }
+.chart-overlay-body { width: 100%; }
+.chart-close {
+  position: absolute; top: 12px; right: 12px;
+  display: grid; place-items: center;
+  width: 40px; height: 40px; padding: 0;
+  background: var(--surface-2); border: 0.5px solid var(--border);
+  border-radius: 50%; color: var(--text-primary); cursor: pointer;
+}
+
+/* Celular em retrato sem trava de orientação: gira o gráfico. */
+.chart-overlay-inner.girado {
+  transform: rotate(90deg);
+  width: 100vh; height: 100vw;
+  max-width: none;
+}
+
+/* ===================== MARCA ===================== */
+.rodape-marca {
+  text-align: center; font-size: 11px; letter-spacing: 0.04em;
+  color: var(--text-muted); padding: 18px 0 4px;
+}
+
+/* Receita editável (formulação) */
+.in-cell.nome { width: 100%; min-width: 130px; text-align: left; }
+.icon-btn { padding: 0 8px; min-width: 34px; color: var(--text-muted); }
+.icon-btn:hover { color: var(--danger); }
+.add-ing { margin-top: 10px; display: inline-flex; align-items: center; gap: 6px; }
+.ms-ok { color: var(--accent); font-weight: 600; }
+.ms-aviso { color: var(--warning); font-weight: 600; }
+.ms-erro { color: var(--danger); font-weight: 700; }
+.aviso.erro { border-color: var(--danger); color: var(--danger); }
+.aviso.ok { border-color: var(--accent); color: var(--accent); }
+.registrar-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+
+/* Ações do topo e painel de exportação (Indicadores) */
+.acoes-topo { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+.exportar-btn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.export-panel { border-color: var(--accent); }
+.export-lista { display: flex; flex-direction: column; gap: 2px; margin-top: 10px; }
+.export-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); font-size: 14px; cursor: pointer; }
+.export-item input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+/* Configurações no cabeçalho (celular) */
+.no-topo-ativo { color: var(--accent); }

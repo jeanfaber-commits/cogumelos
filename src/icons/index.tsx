@@ -42,3 +42,22 @@ export const IconLogout = ({ size, ...p }: P) => (
 export const IconRefresh = ({ size, ...p }: P) => (
   <svg {...base(size)} {...p}><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
 )
+export const IconExpand = ({ size, ...p }: P) => (
+  <svg {...base(size)} {...p}><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+)
+export const IconClose = ({ size, ...p }: P) => (
+  <svg {...base(size)} {...p}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+)
+export const IconPlus = ({ size, ...p }: P) => (
+  <svg {...base(size)} {...p}><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+)
+export const IconTrash = ({ size, ...p }: P) => (
+  <svg {...base(size)} {...p}><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+)
+export const IconDownload = ({ size, ...p }: P) => (
+  <svg {...base(size)} {...p}><path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/></svg>
+)
+// Marca do app: três chapéus de shimeji vistos de cima (mesmo desenho do ícone).
+export const IconShimeji = ({ size, ...p }: P) => (
+  <svg {...base(size)} {...p}><circle cx="8.6" cy="14.6" r="4.6"/><circle cx="15.6" cy="14.1" r="4.2"/><circle cx="12" cy="8.8" r="5.2"/></svg>
+)

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useConfig } from '../context/ConfigContext'
-import { calcularComposto, calcularSpawn } from '../lib/calculos'
+import { useDados } from '../context/DadosContext'
+import { calcularComposto, calcularSpawn, type Ingrediente } from '../lib/calculos'
+import { IconPlus, IconTrash } from '../icons'
 
 const fmt = (n: number, dec = 1) =>
   (isFinite(n) ? n : 0).toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec })
@@ -8,22 +10,42 @@ const fmt = (n: number, dec = 1) =>
 // -------- Calculadora do composto --------
 function Composto() {
   const { config } = useConfig()
+  const { novoLote } = useDados()
   const [modo, setModo] = useState<'kg' | 'bolsas'>('kg')
   const [valor, setValor] = useState('1000')
-  // Umidade de cada ingrediente é editável aqui (começa com o padrão).
-  const [umidades, setUmidades] = useState<number[]>(() => config.ingredientesComposto.map((i) => i.umidadePct))
+  // A receita é editável aqui (começa com a configurada). Matéria seca, umidade,
+  // nome, e dá para incluir ou remover ingredientes.
+  const [ingredientes, setIngredientes] = useState<Ingrediente[]>(() => config.ingredientesComposto.map((i) => ({ ...i })))
+  const [salvando, setSalvando] = useState(false)
+  const [msg, setMsg] = useState('')
 
-  const setUmidade = (i: number, v: number) => setUmidades((prev) => prev.map((u, j) => (j === i ? v : u)))
+  const editar = (i: number, patch: Partial<Ingrediente>) =>
+    setIngredientes((prev) => prev.map((ing, j) => (j === i ? { ...ing, ...patch } : ing)))
+  const remover = (i: number) => setIngredientes((prev) => prev.filter((_, j) => j !== i))
+  const adicionar = () => setIngredientes((prev) => [...prev, { nome: 'Novo ingrediente', materiaSecaPct: 0, umidadePct: 0 }])
 
-  const ingredientes = config.ingredientesComposto.map((ing, i) => ({ ...ing, umidadePct: umidades[i] ?? ing.umidadePct }))
   const n = Number(valor) || 0
   const alvoKg = modo === 'kg' ? n : n * config.pesoBolsaSubstratoKg
   const r = calcularComposto({ ...config, ingredientesComposto: ingredientes }, alvoKg)
 
+  const somaMS = r.somaMateriaSecaPct
+  const excedeu = somaMS > 100.001
+  const incompleta = somaMS < 99.999
+  const podeRegistrar = !excedeu && alvoKg > 0 && ingredientes.length > 0 && !salvando
+
+  const registrar = async () => {
+    if (excedeu) return
+    if (!confirm(`Registrar o início da compostagem de ${fmt(alvoKg, 0)} kg com esta receita?`)) return
+    setSalvando(true); setMsg('')
+    const erro = await novoLote('composto', alvoKg, null, undefined, ingredientes)
+    setSalvando(false)
+    setMsg(erro ?? `Lote de composto registrado com a receita atual.`)
+  }
+
   return (
     <div className="card">
       <div className="section-title">Composto → substrato</div>
-      <div className="section-sub">Digite a umidade de cada ingrediente e veja o peso úmido na hora. Alvo a {config.umidadeAlvoSubstratoPct}% de umidade.</div>
+      <div className="section-sub">Ajuste a matéria seca e a umidade de cada ingrediente. Alvo a {config.umidadeAlvoSubstratoPct}% de umidade.</div>
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 18 }}>
         <div className="num-field" style={{ flex: 1, minWidth: 160 }}>
@@ -43,35 +65,79 @@ function Composto() {
         <table className="tbl">
           <thead>
             <tr>
-              <th>Ingrediente</th><th className="r">Mat. seca</th><th className="r">Umidade %</th><th className="r">Peso úmido</th>
+              <th>Ingrediente</th><th className="r">MS %</th><th className="r">Umidade %</th>
+              <th className="r">Mat. seca</th><th className="r">Peso úmido</th><th></th>
             </tr>
           </thead>
           <tbody>
             {r.linhas.map((l, i) => (
-              <tr key={l.nome}>
-                <td>{l.nome}</td>
-                <td className="r">{fmt(l.secoKg)} kg</td>
-                <td className="r">
-                  <input className="in-cell" type="number" step={1} value={umidades[i] ?? 0}
-                    onChange={(e) => setUmidade(i, Number(e.target.value))} />
+              <tr key={i}>
+                <td>
+                  <input className="in-cell nome" type="text" value={ingredientes[i].nome}
+                    onChange={(e) => editar(i, { nome: e.target.value })} />
                 </td>
+                <td className="r">
+                  <input className="in-cell" type="number" step={0.5} min={0} value={ingredientes[i].materiaSecaPct}
+                    onChange={(e) => editar(i, { materiaSecaPct: Number(e.target.value) })} />
+                </td>
+                <td className="r">
+                  <input className="in-cell" type="number" step={1} min={0} max={99} value={ingredientes[i].umidadePct}
+                    onChange={(e) => editar(i, { umidadePct: Number(e.target.value) })} />
+                </td>
+                <td className="r">{fmt(l.secoKg)} kg</td>
                 <td className="r">{fmt(l.umidoKg)} kg</td>
+                <td className="r">
+                  <button className="btn btn-ghost icon-btn" onClick={() => remover(i)} aria-label={`Remover ${l.nome}`}>
+                    <IconTrash size={16} />
+                  </button>
+                </td>
               </tr>
             ))}
             <tr>
-              <td>Água a adicionar</td><td className="r">—</td><td className="r">—</td><td className="r">{fmt(r.aguaAdicionarKg)} kg</td>
+              <td>Água a adicionar</td><td className="r">—</td><td className="r">—</td>
+              <td className="r">—</td><td className="r">{fmt(r.aguaAdicionarKg)} kg</td><td></td>
             </tr>
           </tbody>
           <tfoot>
-            <tr><td>Total (substrato pronto)</td><td className="r">{fmt(r.massaSecaKg)} kg</td><td className="r">—</td><td className="r">{fmt(r.totalKg)} kg</td></tr>
+            <tr>
+              <td>Total (substrato pronto)</td>
+              <td className={`r ${excedeu ? 'ms-erro' : incompleta ? 'ms-aviso' : 'ms-ok'}`}>{fmt(somaMS)}%</td>
+              <td className="r">—</td>
+              <td className="r">{fmt(r.massaSecaKg)} kg</td>
+              <td className="r">{fmt(r.totalKg)} kg</td><td></td>
+            </tr>
           </tfoot>
         </table>
       </div>
 
+      <button className="btn btn-ghost add-ing" onClick={adicionar}>
+        <IconPlus size={16} /> Adicionar ingrediente
+      </button>
+
+      {excedeu && (
+        <div className="aviso erro">
+          A soma da matéria seca é {fmt(somaMS)}% — não pode passar de 100%. Reduza algum ingrediente para registrar.
+        </div>
+      )}
+      {!excedeu && incompleta && (
+        <div className="aviso">
+          A soma da matéria seca é {fmt(somaMS)}% — falta {fmt(100 - somaMS)}% para fechar a receita.
+        </div>
+      )}
+      {!excedeu && r.aviso && !incompleta && <div className="aviso">{r.aviso}</div>}
       {modo === 'bolsas' && (
         <div className="help">Equivale a {fmt(alvoKg, 0)} kg de substrato ({fmt(n, 0)} bolsas de {config.pesoBolsaSubstratoKg} kg).</div>
       )}
-      {r.aviso && <div className="aviso">{r.aviso}</div>}
+
+      <div className="registrar-bar">
+        <button className="btn btn-primary" disabled={!podeRegistrar} onClick={registrar}>
+          {salvando ? 'Registrando…' : 'Registrar início da compostagem'}
+        </button>
+        <span className="help" style={{ margin: 0 }}>
+          Cria um lote de composto e guarda esta receita junto com ele.
+        </span>
+      </div>
+      {msg && <div className="aviso ok">{msg}</div>}
     </div>
   )
 }

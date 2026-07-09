@@ -19,3 +19,7 @@ export const NAV_ITEMS: Item[] = [
   { id: 'colheita', label: 'Colheita', Icon: IconHarvest },
   { id: 'config', label: 'Configurações', Icon: IconSettings },
 ]
+
+// No celular, Configurações vive no cabeçalho superior; a barra inferior fica
+// só com as telas do dia a dia, ocupando a largura toda.
+export const NAV_MOBILE: Item[] = NAV_ITEMS.filter((i) => i.id !== 'config')

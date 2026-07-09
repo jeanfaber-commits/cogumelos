@@ -17,12 +17,17 @@ function resolverVariaveis(svgTexto: string, contexto: Element): string {
   return svgTexto.replace(/var\((--[a-z0-9-]+)\)/gi, (_, nome) => estilo.getPropertyValue(nome).trim() || '#888')
 }
 
+const MARCA = 'Powered by AgriCore'
+
 async function svgParaCanvas(svg: SVGSVGElement, escala: number, fundo: string): Promise<HTMLCanvasElement> {
   const vb = (svg.getAttribute('viewBox') || '0 0 600 240').split(/\s+/).map(Number)
-  const W = vb[2], H = vb[3]
+  const W = vb[2]
+  const RODAPE = 18            // faixa extra embaixo para a marca
+  const H = vb[3] + RODAPE
 
   const clone = svg.cloneNode(true) as SVGSVGElement
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+  clone.setAttribute('viewBox', `${vb[0]} ${vb[1]} ${W} ${H}`)
   clone.setAttribute('width', String(W))
   clone.setAttribute('height', String(H))
   // fundo sólido (mantém o texto legível no tema atual)
@@ -31,6 +36,17 @@ async function svgParaCanvas(svg: SVGSVGElement, escala: number, fundo: string):
   rect.setAttribute('width', String(W)); rect.setAttribute('height', String(H))
   rect.setAttribute('fill', fundo)
   clone.insertBefore(rect, clone.firstChild)
+
+  // Assinatura no rodapé da imagem exportada.
+  const marca = document.createElementNS('http://www.w3.org/2000/svg', 'text')
+  marca.setAttribute('x', String(W / 2))
+  marca.setAttribute('y', String(H - 5))
+  marca.setAttribute('text-anchor', 'middle')
+  marca.setAttribute('font-size', '10')
+  marca.setAttribute('font-family', 'sans-serif')
+  marca.setAttribute('fill', 'var(--text-muted)')
+  marca.textContent = MARCA
+  clone.appendChild(marca)
 
   let texto = new XMLSerializer().serializeToString(clone)
   texto = resolverVariaveis(texto, svg)
@@ -105,7 +121,10 @@ export function montarPdfJpeg(jpeg: Uint8Array, wPx: number, hPx: number, titulo
 
   obj(5, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>')
 
-  const conteudo = `BT /F1 13 Tf ${margem} ${(PH - margem - 13).toFixed(2)} Td (${tituloEsc}) Tj ET\nq ${dispW.toFixed(2)} 0 0 ${dispH.toFixed(2)} ${margem} ${imgY.toFixed(2)} cm /Im0 Do Q`
+  const conteudo =
+    `BT /F1 13 Tf ${margem} ${(PH - margem - 13).toFixed(2)} Td (${tituloEsc}) Tj ET\n` +
+    `q ${dispW.toFixed(2)} 0 0 ${dispH.toFixed(2)} ${margem} ${imgY.toFixed(2)} cm /Im0 Do Q\n` +
+    `BT /F1 9 Tf 0.5 0.5 0.5 rg ${margem} ${margem.toFixed(2)} Td (Powered by AgriCore) Tj ET`
   offsets[6] = len
   push(`6 0 obj\n<< /Length ${enc.encode(conteudo).length} >>\nstream\n`)
   push(conteudo)

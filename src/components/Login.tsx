@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabaseConfigured } from '../lib/supabase'
-import { IconMushroom } from '../icons'
+import { IconShimeji } from '../icons'
 
 export default function Login() {
   const { signIn } = useAuth()
@@ -23,7 +23,7 @@ export default function Login() {
     <div className="auth-wrap">
       <div className="card auth-card">
         <div className="auth-head">
-          <div className="auth-mark"><IconMushroom size={28} /></div>
+          <div className="auth-mark"><IconShimeji size={28} /></div>
           <div className="auth-title">Controle de Produção</div>
           <div className="auth-sub">Entre para acessar o painel</div>
         </div>
@@ -53,6 +53,8 @@ export default function Login() {
         <button className="btn btn-primary btn-full" onClick={entrar} disabled={carregando}>
           {carregando ? 'Entrando…' : 'Entrar'}
         </button>
+
+        <div className="rodape-marca">Powered by AgriCore</div>
       </div>
     </div>
   )

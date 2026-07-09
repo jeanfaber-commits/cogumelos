@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { supabaseConfigured } from '../lib/supabase'
-import { tetoSustentavel, type Config, type ResultadoTeto } from '../lib/calculos'
+import { tetoSustentavel, type Config, type ResultadoTeto, type Ingrediente } from '../lib/calculos'
 import { calibrarTempos, aplicarTempos, type TemposReais } from '../lib/calibracao'
 import { listarContaminacoes, type Contaminacao, type CausaContaminacao } from '../lib/contaminacao'
 import { useAuth } from './AuthContext'
@@ -39,7 +39,7 @@ type DadosCtx = {
   recarregar: () => Promise<void>
   novaMovimentacao: (item: ItemEstoque, quantidade: number, tipo: TipoMov, obs?: string) => Promise<string | null>
   cancelarMov: (id: number) => Promise<string | null>
-  novoLote: (tipo: TipoLote, kg: number, bolsas: number | null, iniciadoEm?: Date) => Promise<string | null>
+  novoLote: (tipo: TipoLote, kg: number, bolsas: number | null, iniciadoEm?: Date, receita?: Ingrediente[]) => Promise<string | null>
   loteMarcarPronto: (l: Lote) => Promise<string | null>
   loteMoverConteiner: (l: Lote, conteiner: number, bolsasMover?: number | null) => Promise<string | null>
   loteEncerrar: (l: Lote) => Promise<string | null>
@@ -119,10 +119,10 @@ export function DadosProvider({ children }: { children: ReactNode }) {
     novaMovimentacao: (item, quantidade, tipo, obs) =>
       comReload(registrarMovimentacao({ item, quantidade, tipo, observacao: obs }, user?.id)),
     cancelarMov: (id) => comReload(cancelarMovimentacao(id, user?.id)),
-    novoLote: (tipo, kg, bolsas, iniciadoEm) => {
+    novoLote: (tipo, kg, bolsas, iniciadoEm, receita) => {
       const codigo = gerarCodigoLote(tipo, lotes, iniciadoEm)
       const p =
-        tipo === 'composto' ? criarLoteComposto(config, kg, codigo, user?.id, iniciadoEm)
+        tipo === 'composto' ? criarLoteComposto(config, kg, codigo, user?.id, iniciadoEm, receita)
         : tipo === 'spawn' ? criarLoteSpawn(config, kg, bolsas, codigo, user?.id, iniciadoEm)
         : criarLoteProducao(config, kg, bolsas, codigo, user?.id, iniciadoEm)
       return comReload(p)

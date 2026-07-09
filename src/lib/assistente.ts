@@ -112,9 +112,9 @@ export function serieProjecao(lotes: Lote[], c: Config, dias = 63, passo = 7): P
   return pontos
 }
 
-// Projeção com uma linha por lote: cada lote de produção (frutificando ou
-// colonizando) vira uma série com a sua contribuição de kg ao longo do tempo.
-// A soma reproduz a projeção total. Serve para ver quando cada lote sai.
+// Projeção com uma linha por lote, ACUMULATIVA (empilhada): cada linha soma a
+// sua contribuição às dos lotes anteriores. Assim a linha mais alta é sempre a
+// ocupação total prevista, e a faixa entre duas linhas é o lote daquela faixa.
 export function serieProjecaoPorLote(
   lotes: Lote[], c: Config, dias = 63, passo = 7,
 ): { series: { nome: string; pontos: Ponto[] }[]; total: Ponto[] } {
@@ -136,12 +136,16 @@ export function serieProjecaoPorLote(
     }
   }
   const ativos = itens.filter((it) => passos.some((d) => it.contrib(d) > 0))
-  const series = ativos.map((it) => ({
-    nome: it.l.codigo,
-    pontos: passos.map((d) => ({ label: rotulo(d), valor: Math.round(it.contrib(d)) })),
-  }))
-  const total: Ponto[] = passos.map((d) => ({
-    label: rotulo(d), valor: Math.round(ativos.reduce((s, it) => s + it.contrib(d), 0)),
-  }))
+
+  // Empilha: a série do lote i é a soma das contribuições dos lotes 0..i.
+  const acumulado = passos.map(() => 0)
+  const series = ativos.map((it) => {
+    const pontos = passos.map((d, k) => {
+      acumulado[k] += it.contrib(d)
+      return { label: rotulo(d), valor: Math.round(acumulado[k]) }
+    })
+    return { nome: it.l.codigo, pontos }
+  })
+  const total: Ponto[] = passos.map((d, k) => ({ label: rotulo(d), valor: Math.round(acumulado[k]) }))
   return { series, total }
 }

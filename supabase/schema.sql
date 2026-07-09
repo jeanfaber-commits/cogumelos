@@ -169,6 +169,12 @@ alter table lote add column if not exists pronto_em       timestamptz;
 alter table lote add column if not exists frutificacao_em timestamptz;
 alter table lote add column if not exists encerrado_em     timestamptz;
 
+-- ------------------------------------------------ RECEITA DO LOTE ----------
+-- Snapshot da mistura usada no lote de composto (ingredientes, matéria seca e
+-- umidade no momento do registro). Permite, depois, ligar rendimento e
+-- contaminação à formulação que foi realmente usada.
+alter table lote add column if not exists receita jsonb;
+
 -- ------------------------------------ EVENTOS DE CONTAMINAÇÃO (CAUSA-RAIZ) --
 -- Cada registro de contaminação vira um evento com etapa e causa provável,
 -- para análise de Pareto e correlação. O total por lote continua em

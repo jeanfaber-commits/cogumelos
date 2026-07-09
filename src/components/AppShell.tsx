@@ -3,8 +3,8 @@ import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 import { NavProvider } from '../context/NavContext'
 import { useDados } from '../context/DadosContext'
-import { NAV_ITEMS, type Rota } from './Nav'
-import { IconMushroom, IconSun, IconMoon, IconLogout, IconRefresh } from '../icons'
+import { NAV_ITEMS, NAV_MOBILE, type Rota } from './Nav'
+import { IconShimeji, IconSun, IconMoon, IconLogout, IconRefresh, IconSettings } from '../icons'
 
 import Painel from '../views/Painel'
 import Formulacao from '../views/Formulacao'
@@ -51,7 +51,7 @@ export default function AppShell() {
         {/* ----- Barra lateral (desktop / tablet largo) ----- */}
         <aside className="sidebar">
           <div className="brand">
-            <div className="brand-mark"><IconMushroom size={20} /></div>
+            <div className="brand-mark"><IconShimeji size={20} /></div>
             <div>
               <div className="brand-name">Cogumelos</div>
               <div className="brand-sub">Controle de produção</div>
@@ -81,13 +81,18 @@ export default function AppShell() {
         {/* ----- Cabeçalho (celular) ----- */}
         <header className="mobile-header">
           <div className="brand">
-            <div className="brand-mark"><IconMushroom size={18} /></div>
+            <div className="brand-mark"><IconShimeji size={18} /></div>
             <div className="brand-name">Cogumelos</div>
           </div>
           <div style={{ display: 'flex', gap: 4 }}>
             <button className="btn btn-ghost" style={{ padding: '0 12px', minWidth: 48 }}
               onClick={atualizar} aria-label="Atualizar dados">
               <IconRefresh size={20} className={atualizando ? 'girando' : undefined} />
+            </button>
+            <button className={`btn btn-ghost ${rota === 'config' ? 'no-topo-ativo' : ''}`}
+              style={{ padding: '0 12px', minWidth: 48 }}
+              onClick={() => setRota('config')} aria-label="Configurações">
+              <IconSettings size={20} />
             </button>
             <button className="btn btn-ghost" style={{ padding: '0 12px', minWidth: 48 }}
               onClick={toggle} aria-label="Alternar tema">
@@ -104,12 +109,13 @@ export default function AppShell() {
         <main className="main">
           <div className="main-inner">
             <View />
+            <div className="rodape-marca">Powered by AgriCore</div>
           </div>
         </main>
 
         {/* ----- Barra inferior (celular) ----- */}
         <nav className="bottom-nav">
-          {NAV_ITEMS.map(({ id, label, Icon }) => (
+          {NAV_MOBILE.map(({ id, label, Icon }) => (
             <button key={id} className={`bottom-item ${ativo(id) ? 'active' : ''}`}
               onClick={() => setRota(id)} aria-current={ativo(id)}>
               <Icon size={24} /> {label}

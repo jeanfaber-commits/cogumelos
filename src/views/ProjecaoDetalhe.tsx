@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useDados } from '../context/DadosContext'
 import { useNav } from '../context/NavContext'
 import LineChart from '../components/LineChart'
+import ChartFrame from '../components/ChartFrame'
 import { serieProjecao, serieProjecaoPorLote, diasSustentandoTeto } from '../lib/assistente'
 
 const fmt = (n: number, dec = 0) =>
@@ -36,20 +37,22 @@ export default function ProjecaoDetalhe() {
       <div className="rotate-hint">Vire o aparelho na horizontal para ver o gráfico maior.</div>
 
       <div className="card projecao-full">
-        {modo === 'total' ? (
-          <LineChart pontos={proj} unidade="kg" altura={360}
-            referencia={{ valor: tetoKg, label: `teto ${fmt(tetoKg)} kg` }} />
-        ) : porLote.series.length === 0 ? (
-          <div className="empty-note">Nenhum lote em produção ou colonização para projetar.</div>
-        ) : (
-          <LineChart series={porLote.series} unidade="kg" altura={360}
-            referencia={{ valor: tetoKg, label: `teto ${fmt(tetoKg)} kg` }} />
-        )}
+        <ChartFrame titulo="Projeção do contêiner">
+          {modo === 'total' ? (
+            <LineChart pontos={proj} unidade="kg" altura={360}
+              referencia={{ valor: tetoKg, label: `teto ${fmt(tetoKg)} kg` }} />
+          ) : porLote.series.length === 0 ? (
+            <div className="empty-note">Nenhum lote em produção ou colonização para projetar.</div>
+          ) : (
+            <LineChart series={porLote.series} unidade="kg" altura={360}
+              referencia={{ valor: tetoKg, label: `teto ${fmt(tetoKg)} kg` }} />
+          )}
+        </ChartFrame>
       </div>
 
       <div className="assist-proj-note" style={{ marginTop: 10 }}>
         {modo === 'lote'
-          ? 'Cada linha é um lote: mostra por quanto tempo ele ocupa o contêiner até a saída prevista. A soma das linhas é a projeção total.'
+          ? 'Linhas acumulativas: cada faixa entre duas linhas é um lote, e a linha mais alta é a lotação total prevista.'
           : dias === 0
             ? 'O contêiner já está abaixo do teto — iniciar produção o recupera.'
             : dias != null && dias >= 120

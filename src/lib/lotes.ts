@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { Config } from './calculos'
+import type { Config, Ingrediente } from './calculos'
 import type { ItemEstoque, TipoMov } from './estoque'
 import type { CausaContaminacao, EtapaContaminacao } from './contaminacao'
 
@@ -24,6 +24,7 @@ export type Lote = {
   pronto_em: string | null
   frutificacao_em: string | null
   encerrado_em: string | null
+  receita: Ingrediente[] | null
   observacao: string | null
   cancelado_em: string | null
 }
@@ -101,7 +102,7 @@ export function gerarCodigoLote(tipo: TipoLote, lotes: Lote[], dataRef?: Date): 
 export async function listarLotes(): Promise<Lote[]> {
   const { data, error } = await supabase
     .from('lote')
-    .select('id,codigo,tipo,etapa,quantidade_kg,bolsas,bolsas_contaminadas,conteiner,iniciado_em,etapa_desde,previsto_para,pronto_em,frutificacao_em,encerrado_em,observacao,cancelado_em')
+    .select('id,codigo,tipo,etapa,quantidade_kg,bolsas,bolsas_contaminadas,conteiner,iniciado_em,etapa_desde,previsto_para,pronto_em,frutificacao_em,encerrado_em,receita,observacao,cancelado_em')
     .order('iniciado_em', { ascending: false })
     .limit(500)
   if (error || !data) return []
@@ -118,11 +119,13 @@ async function criarLote(
   movs: Mov[],
   userId?: string,
   iniciadoEm?: string,
+  receita?: Ingrediente[],
 ): Promise<string | null> {
   const extra = iniciadoEm ? { iniciado_em: iniciadoEm, etapa_desde: iniciadoEm } : {}
+  const rec = receita ? { receita } : {}
   const { data, error } = await supabase
     .from('lote')
-    .insert({ ...dados, ...extra, criado_por: userId ?? null })
+    .insert({ ...dados, ...extra, ...rec, criado_por: userId ?? null })
     .select('id')
     .single()
   if (error || !data) return error?.message ?? 'Falha ao criar o lote.'
@@ -138,12 +141,12 @@ async function criarLote(
   return null
 }
 
-export function criarLoteComposto(c: Config, kg: number, codigo: string, userId?: string, iniciadoEm?: Date) {
+export function criarLoteComposto(c: Config, kg: number, codigo: string, userId?: string, iniciadoEm?: Date, receita?: Ingrediente[]) {
   const base = iniciadoEm?.toISOString()
   const previsto = base ? emDiasDe(base, c.tempoPreparoComposto) : emDias(c.tempoPreparoComposto)
   return criarLote(
     { codigo, tipo: 'composto', etapa: 'preparo', quantidade_kg: kg, bolsas: null, previsto_para: previsto },
-    [], userId, base,
+    [], userId, base, receita,
   )
 }
 
@@ -236,7 +239,7 @@ export async function moverParaConteiner(
     tipo: 'producao', etapa: 'frutificando',
     quantidade_kg: kgMover, bolsas: mover, bolsas_contaminadas: 0, conteiner,
     iniciado_em: l.iniciado_em, etapa_desde: agora, frutificacao_em: agora,
-    previsto_para: emDias(c.tempoFrutificacao), criado_por: userId ?? null,
+    previsto_para: emDias(c.tempoFrutificacao), receita: l.receita, criado_por: userId ?? null,
   })
   if (e2) {
     // desfaz a redução do pai para não sumir com bolsas.

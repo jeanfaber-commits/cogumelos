@@ -87,8 +87,9 @@ configurações.
 
 > **Atualizando de uma versão anterior?** Rode o `supabase/schema.sql` de novo.
 > Esta versão adiciona marcos de data nos lotes (`pronto_em`, `frutificacao_em`,
-> `encerrado_em`) e a tabela `contaminacao` (eventos com causa). O script é
-> idempotente: aplica só o que falta, sem apagar nada.
+> `encerrado_em`), a coluna `receita` (mistura usada no lote de composto) e a
+> tabela `contaminacao` (eventos com causa). O script é idempotente: aplica só o
+> que falta, sem apagar nada.
 
 ---
 
@@ -152,26 +153,40 @@ e o teto sustentável guiando as decisões.
 
 ## Novidades desta versão
 
-- **Tempos que se autocalibram.** O app mede o tempo real de colonização, frutificação
-  e spawn nos lotes concluídos (usando os marcos de data) e, com 3+ amostras, passa a
-  usar a mediana real no teto e na projeção, no lugar do valor configurado. Veja em
-  **Indicadores → Tempos reais (calibração)**.
-- **Controle estatístico (SPC).** Carta p da contaminação por lote em Indicadores: linha
-  central (média) e limite de 3σ que varia com o tamanho do lote. Lotes acima do limite
-  (causa especial) são listados para investigação.
-- **Causa-raiz da contaminação.** Ao registrar contaminação, escolha a causa provável
-  (spawn, pasteurização, manuseio, ambiente…). O card **Causa-raiz** mostra o Pareto das
-  causas no período.
-- **Data de início retroativa.** Ao criar um lote, dá para escolher a data — útil para
-  lançar lotes que começaram antes. O código e as previsões ajustam para a data escolhida.
-- **Movimentação parcial para o contêiner.** Ao mover um lote para frutificação, é possível
-  enviar só parte das bolsas (lotes nem sempre são homogêneos). O lote é dividido: a parte
-  movida vira um lote-filho (`-P1`, `-P2`) já frutificando e o restante segue colonizando.
-- **Rótulos de valor nos gráficos de linha**, em cada ponto.
-- **Projeção do contêiner em tela cheia.** Toque no gráfico de projeção (Painel) para abrir
-  em tela cheia, com opção de ver **cada lote como uma linha** — mostra quando cada um sai
-  e libera espaço. Melhor com o celular na horizontal.
+- **Projeção por lote acumulativa.** Na tela cheia da projeção, as linhas são empilhadas:
+  cada faixa entre duas linhas é um lote e a linha mais alta é a lotação total prevista.
+- **Lotação histórica.** Em Indicadores, gráfico de ocupação do contêiner e da sala de
+  incubação nos últimos 30 / 90 / 180 dias, reconstruída dos marcos de data dos lotes.
+- **Histórico de eficiência biológica e de sanidade**, no mesmo seletor de período.
+- **Tela cheia em todos os gráficos.** Cada gráfico tem um botão de expandir. No celular
+  ele tenta travar em paisagem; se o navegador não deixar, o gráfico é girado. No PC
+  ocupa a tela inteira.
+- **Configurações no cabeçalho.** No celular, o botão de Configurações foi para o topo,
+  ao lado de Atualizar; a barra inferior agora ocupa toda a largura da tela.
+- **Formulação com receita editável.** Matéria seca e umidade de cada ingrediente são
+  editáveis, dá para incluir e remover ingredientes, e a soma da matéria seca é validada
+  (não passa de 100%). Um botão registra o início da compostagem criando o lote **com a
+  receita guardada junto** — base para, no futuro, calcular eficiência biológica por lote
+  e investigar contaminações por formulação.
+- **Exportação seletiva em Indicadores.** Um botão "Exportar" abre a lista de gráficos
+  disponíveis; escolha quais quer e saia em PNG ou PDF (um arquivo por gráfico), além do
+  CSV das colheitas.
+- **Ícone novo:** três chapéus de shimeji vistos de cima, brancos em fundo preto — o
+  desenho mais legível em tamanho pequeno. Vale para o favicon, os ícones do PWA
+  (192/512), a versão *maskable* do Android e o ícone do iOS. O mesmo desenho virou a
+  marca no cabeçalho e na tela de login.
+- **"Powered by AgriCore"** no rodapé das páginas, na tela de login e nos arquivos
+  exportados (PNG e PDF).
 
-Ideias para o futuro, quando fizer sentido: atribuição de rendimento por lote (para
-comparar formulações e spawns), previsão de colheita por fluxos, camada econômica
-(margem e payback em R$) e sensores de CO₂/temperatura/umidade no contêiner.
+## Tempos, SPC e causa-raiz (versão anterior)
+
+- **Tempos que se autocalibram:** o app mede o tempo real de colonização, frutificação e
+  spawn nos lotes concluídos e, com 3+ amostras, usa a mediana real no teto e na projeção.
+- **Controle estatístico (SPC):** carta p da contaminação por lote, com limite de 3σ.
+- **Causa-raiz:** ao registrar contaminação escolhe-se a causa; o Pareto mostra onde atacar.
+- **Data de início retroativa** e **movimentação parcial de bolsas** para o contêiner
+  (o lote é dividido: a parte movida vira `-P1`, `-P2`…).
+
+Ideias para o futuro, quando fizer sentido: atribuição de rendimento por lote (agora mais
+próxima, já que a receita fica salva no lote), previsão de colheita por fluxos, camada
+econômica (margem e payback em R$) e sensores de CO₂/temperatura/umidade no contêiner.

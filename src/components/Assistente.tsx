@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { useDados } from '../context/DadosContext'
 import { useNav } from '../context/NavContext'
 import LineChart from './LineChart'
+import ChartFrame from './ChartFrame'
 import { baixarPng, baixarPdf } from '../lib/exportar'
 import { capacidadeNecessaria } from '../lib/calculos'
 import { diagnostico, planoInicio, serieProjecao, diasSustentandoTeto } from '../lib/assistente'
@@ -42,7 +43,7 @@ export default function Assistente() {
   const dataFutura = (n: number) => new Date(Date.now() + n * 86400000).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
   const preparar = plano.prepararCompostoKg > 0.5 || plano.prepararSpawnKg > 0.5
   const exportarProj = async (tipo: 'png' | 'pdf') => {
-    const svg = projRef.current?.querySelector('svg') as SVGSVGElement | null
+    const svg = projRef.current?.querySelector('svg[role="img"]') as SVGSVGElement | null
     if (!svg) return
     if (tipo === 'png') await baixarPng(svg, 'projecao-conteiner')
     else await baixarPdf(svg, 'projecao-conteiner', 'Projeção da ocupação do contêiner')
@@ -103,11 +104,13 @@ export default function Assistente() {
       <div className="card">
         <div className="section-title" style={{ marginBottom: 2 }}>Projeção do contêiner</div>
         <div className="section-sub">Ocupação prevista (kg) com o pipeline atual, sem novos lotes. A linha é o teto.</div>
-        <button className="chart-open" onClick={() => irPara('projecaoDetalhe')} title="Abrir em tela cheia">
-          <div ref={projRef}>
+        <div ref={projRef}>
+          <ChartFrame titulo="Projeção do contêiner">
             <LineChart pontos={proj} unidade="kg" referencia={{ valor: d.tetoKg, label: `teto ${fmt(d.tetoKg)} kg` }} />
-          </div>
-          <span className="chart-open-hint">toque para ampliar e ver por lote</span>
+          </ChartFrame>
+        </div>
+        <button className="chart-open-hint" onClick={() => irPara('projecaoDetalhe')}>
+          ver a projeção por lote
         </button>
         <div className="export-bar">
           <span>Exportar:</span>
